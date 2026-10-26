@@ -29,8 +29,10 @@
             background-color: var(--bg-base);
             color: var(--text-main);
             height: 100vh;
+            height: 100dvh;
             display: flex;
             overflow: hidden;
+            -webkit-text-size-adjust: 100%;
         }
 
         /* Layout */
@@ -45,7 +47,8 @@
             flex: 1;
             display: flex;
             flex-direction: column;
-            padding: 24px;
+            padding: clamp(12px, 2vw, 24px);
+            min-width: 0;
         }
 
         .header {
@@ -132,7 +135,8 @@
 
         /* Right: Multimedia Panel */
         .sidebar {
-            width: 400px;
+            width: clamp(320px, 30vw, 400px);
+            flex-shrink: 0;
             background-color: var(--bg-panel);
             border-left: 1px solid var(--border);
             display: flex;
@@ -198,6 +202,8 @@
             align-items: center;
             gap: 12px;
             overflow: hidden;
+            min-width: 0;
+            flex: 1;
         }
 
         .item-thumb {
@@ -213,7 +219,8 @@
             white-space: nowrap;
             overflow: hidden;
             text-overflow: ellipsis;
-            max-width: 170px;
+            min-width: 0;
+            flex: 1;
         }
 
         .item-actions {
@@ -263,6 +270,62 @@
         #fade-slider::-webkit-slider-runnable-track {
             width: 100%; height: 3px; cursor: pointer;
             background: rgba(255,255,255,0.2); border-radius: 2px;
+        }
+
+        /* ===== Responsif ===== */
+        .header { flex-wrap: wrap; gap: 12px; }
+        .header h1 { font-size: clamp(1.15rem, 3.5vw, 1.5rem); }
+        .header-controls { flex-wrap: wrap; }
+        .list-item { gap: 8px; }
+        .item-thumb { flex-shrink: 0; }
+        .item-actions { flex-shrink: 0; }
+        .panel-section { min-height: 0; }
+        .section-header h3 { font-size: clamp(0.95rem, 2.5vw, 1.1rem); }
+
+        /* Tablet & ponsel: susunan vertikal, halaman bisa di-scroll */
+        @media (max-width: 900px) {
+            body { display: block; height: auto; min-height: 100dvh; overflow: auto; }
+            .app { flex-direction: column; height: auto; min-height: 100dvh; }
+            .preview-panel { padding: 12px; }
+            .header { margin-bottom: 12px; }
+            .screen-container {
+                flex: none;
+                width: 100%;
+                aspect-ratio: 16 / 9;
+                max-height: 70vh;
+                max-height: 70dvh;
+            }
+            .sidebar {
+                width: 100%;
+                border-left: none;
+                border-top: 1px solid var(--border);
+                flex-shrink: 1;
+            }
+            .panel-section { flex: none; }
+            .item-list { flex: none; max-height: min(45dvh, 360px); min-height: 120px; }
+        }
+
+        /* Ponsel kecil */
+        @media (max-width: 520px) {
+            .header { flex-direction: column; align-items: stretch; }
+            .header-controls { width: 100%; flex-wrap: nowrap; }
+            .ratio-select { flex: 1; min-width: 0; }
+            .btn { padding: 8px 12px; font-size: 0.9rem; white-space: nowrap; }
+            .fade-control-bar { padding: 10px 12px; }
+            .section-header { padding: 12px; }
+            .item-list { padding: 8px; }
+            .remain-time { display: none; }
+        }
+
+        /* Layar sentuh: target sentuh lebih besar */
+        @media (pointer: coarse) {
+            .btn-icon { padding: 10px; }
+            .btn-icon svg { width: 22px; height: 22px; }
+            .btn { min-height: 40px; }
+            .seek-slider { height: 28px; }
+            .seek-slider::-webkit-slider-thumb { height: 18px; width: 18px; margin-top: -7.5px; }
+            #fade-slider { height: 28px; }
+            #fade-slider::-webkit-slider-thumb { height: 20px; width: 20px; margin-top: -8.5px; }
         }
     </style>
 </head>
@@ -822,8 +885,9 @@
                             <span class="current-time">${formatTime(curVal)}</span>
                             <input type="range" class="seek-slider" style="flex:1;" 
                                    min="0" max="${audio.duration || 0}" step="0.1" value="${curVal}"
-                                   onmousedown="this.isDragging = true" 
-                                   onmouseup="this.isDragging = false; seekAudio('${audio.id}', this.value)" 
+                                   onpointerdown="this.isDragging = true" 
+                                   onpointerup="const s = this; setTimeout(() => { s.isDragging = false; }, 200)" onpointercancel="this.isDragging = false" 
+                                   onchange="seekAudio('${audio.id}', this.value)" 
                                    oninput="document.querySelector('#audio-item-${audio.id} .current-time').innerText = formatTime(this.value)">
                             <span class="total-time">${formatTime(audio.duration || 0)}</span>
                             <span class="remain-time">(-${formatTime((audio.duration || 0) - curVal)})</span>
