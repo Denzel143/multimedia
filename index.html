@@ -468,6 +468,52 @@
             #fade-slider, #anim-duration { height: 28px; }
             #fade-slider::-webkit-slider-thumb, #anim-duration::-webkit-slider-thumb { height: 20px; width: 20px; margin-top: -8.5px; }
         }
+
+        /* ===== Expand panel (morph) ===== */
+        .header-actions { display: flex; align-items: center; gap: 8px; }
+        .exp-overlay { position: fixed; inset: 0; z-index: 900; pointer-events: none; }
+        .exp-backdrop { position: absolute; inset: 0; background: rgba(2, 6, 23, 0.72); backdrop-filter: blur(4px); pointer-events: auto; touch-action: none; overscroll-behavior: contain; }
+        .exp-shell { position: fixed; z-index: 1; background: var(--bg-panel); border: 1px solid var(--border); border-radius: 14px; box-shadow: 0 30px 80px rgba(0,0,0,0.6); pointer-events: none; }
+        .panel-section.exp-mode {
+            position: fixed; inset: 0; margin: auto; z-index: 2; flex: none; pointer-events: auto;
+            width: min(1180px, 94vw); height: min(780px, 90vh);
+            background: var(--bg-panel); border: 1px solid var(--border); border-radius: 14px;
+            box-shadow: 0 30px 80px rgba(0,0,0,0.6);
+            display: grid;
+        }
+        .panel-section.exp-collapsing { position: fixed; margin: 0; z-index: 2; flex: none; }
+        .panel-section.exp-anim { overflow: visible !important; background: transparent !important; border-color: transparent !important; box-shadow: none !important; }
+        .panel-section.exp-anim .item-list { overflow: visible; }
+        .exp-mode .item-list { max-height: none; min-height: 0; }
+        .exp-mode .section-header { background-color: rgba(0,0,0,0.2); }
+
+        /* Layout expand: Latar Belakang */
+        .exp-bg { grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr); grid-template-rows: auto auto minmax(0, 1fr); grid-template-areas: "head head" "list anim" "list prev"; }
+        .exp-bg .section-header { grid-area: head; }
+        .exp-bg .anim-panel { grid-area: anim; border-left: 1px solid var(--border); }
+        .exp-bg .item-list { grid-area: list; display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 12px; align-content: start; padding: 16px; }
+        .exp-bg .item-list > .empty-state { grid-column: 1 / -1; }
+        .exp-bg .list-item { flex-direction: column; align-items: stretch; padding: 8px; gap: 8px; }
+        .exp-bg .item-info { flex: none; flex-direction: column; align-items: stretch; gap: 8px; }
+        .exp-bg .item-thumb { width: 100%; height: auto; aspect-ratio: 16 / 9; border-radius: 6px; }
+        .exp-bg .item-actions { justify-content: flex-end; }
+        .exp-preview-area { grid-area: prev; min-height: 0; min-width: 0; padding: 16px; display: flex; align-items: center; justify-content: center; container-type: size; border-left: 1px solid var(--border); }
+        .exp-stage { position: relative; overflow: hidden; container-type: size; background: #000; border: 2px solid var(--border); border-radius: 12px; display: flex; align-items: center; justify-content: center; aspect-ratio: var(--ar, 1.7778); width: min(100cqw, calc(100cqh * var(--ar, 1.7778))); }
+
+        /* Layout expand: Suara Latar */
+        .exp-audio { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); grid-template-rows: auto minmax(0, 1fr) auto; grid-template-areas: "head head" "list viz" "fade fade"; }
+        .exp-audio .section-header { grid-area: head; }
+        .exp-audio .item-list { grid-area: list; }
+        .exp-audio .viz-panel { grid-area: viz; position: relative; min-height: 0; padding: 0; border-left: 1px solid var(--border); border-bottom: none; }
+        .exp-audio #viz-canvas { position: absolute; inset: 16px; width: calc(100% - 32px); height: calc(100% - 32px); }
+        .exp-audio .fade-control-bar { grid-area: fade; border-top: 1px solid var(--border); border-bottom: none; padding: 14px 20px; }
+
+        @media (max-width: 700px) {
+            .exp-bg { grid-template-columns: minmax(0, 1fr); grid-template-rows: auto auto minmax(0, 1fr) minmax(0, 0.8fr); grid-template-areas: "head" "anim" "list" "prev"; }
+            .exp-bg .anim-panel, .exp-preview-area { border-left: none; }
+            .exp-audio { grid-template-columns: minmax(0, 1fr); grid-template-rows: auto minmax(0, 0.6fr) minmax(0, 1fr) auto; grid-template-areas: "head" "viz" "list" "fade"; }
+            .exp-audio .viz-panel { border-left: none; border-bottom: 1px solid var(--border); }
+        }
     </style>
 </head>
 <body>
@@ -522,13 +568,16 @@
         <div class="sidebar">
             
             <!-- Backgrounds -->
-            <div class="panel-section">
+            <div class="panel-section" id="sec-bg">
                 <div class="section-header">
                     <h3>Latar Belakang</h3>
+                    <div class="header-actions">
                     <button class="btn btn-primary" style="padding: 6px 12px; font-size: 0.85rem;" onclick="document.getElementById('bg-input').click()">
                         Unggah
                     </button>
                     <input type="file" id="bg-input" class="hidden-input" accept="image/*" multiple onchange="handleUpload(event, 'bg')">
+                    <button type="button" class="btn-icon exp-btn" title="Perbesar" aria-label="Perbesar panel" onclick="toggleExpand('bg')"><svg viewBox="0 0 24 24"><polyline points="15 3 21 3 21 9"></polyline><polyline points="9 21 3 21 3 15"></polyline><line x1="21" y1="3" x2="14" y2="10"></line><line x1="3" y1="21" x2="10" y2="14"></line></svg></button>
+                    </div>
                 </div>
                 <details class="anim-panel" id="anim-panel">
                     <summary>Animasi Latar</summary>
@@ -550,13 +599,16 @@
             </div>
 
             <!-- Backsounds -->
-            <div class="panel-section">
+            <div class="panel-section" id="sec-audio">
                 <div class="section-header">
                     <h3>Suara Latar</h3>
+                    <div class="header-actions">
                     <button class="btn btn-primary" style="padding: 6px 12px; font-size: 0.85rem;" onclick="document.getElementById('audio-input').click()">
                         Unggah
                     </button>
                     <input type="file" id="audio-input" class="hidden-input" accept="audio/*" multiple onchange="handleUpload(event, 'audio')">
+                    <button type="button" class="btn-icon exp-btn" title="Perbesar" aria-label="Perbesar panel" onclick="toggleExpand('audio')"><svg viewBox="0 0 24 24"><polyline points="15 3 21 3 21 9"></polyline><polyline points="9 21 3 21 3 15"></polyline><line x1="21" y1="3" x2="14" y2="10"></line><line x1="3" y1="21" x2="10" y2="14"></line></svg></button>
+                    </div>
                 </div>
                 <!-- Global Fade Control -->
                 <div class="fade-control-bar">
@@ -852,6 +904,8 @@
         // Saat proyektor terbuka, kotak preview memakai rasio (lebar : tinggi) yang sama dengan layar proyektor.
         // Saat ditutup, preview kembali normal (memenuhi area yang tersedia).
         function setPreviewAspect(w, h) {
+            const es = document.getElementById('exp-preview-stage');
+            if (es) es.style.setProperty('--ar', (w > 0 && h > 0) ? (w / h).toFixed(4) : '1.7778');
             const stage = document.getElementById('preview-stage');
             if (!stage) return;
             if (!(w > 0 && h > 0)) {
@@ -1154,6 +1208,8 @@
                 }
             }
 
+            expPreviewSync(instant, wasShowing);
+
             if (projectorWindow && !projectorWindow.closed) {
                 try {
                     const stage = projectorWindow.document.getElementById('stage');
@@ -1273,8 +1329,8 @@
                     document.removeEventListener('keydown', onKey, true);
                     okBtn.onclick = null; cancelBtn.onclick = null;
                     overlay.hidden = true;
-                    app.inert = false;
-                    document.documentElement.classList.remove('modal-open');
+                    app.inert = !!expState;   // tetap terkunci jika panel sedang di-expand
+                    if (!expState) document.documentElement.classList.remove('modal-open');
                     if (prevFocus && prevFocus.isConnected && prevFocus.focus) prevFocus.focus();
                     resolve(result);
                 }
@@ -1494,6 +1550,7 @@
         // Setiap audio disalurkan lewat Web Audio: sumber -> speaker (seperti biasa) dan dicabangkan ke
         // dua AnalyserNode (kiri & kanan). Fade volume tetap lewat audio.volume, jadi ikut terlihat di bar.
         const VIZ_BARS = 32;
+        let vizSide = false;   // true saat panel Suara Latar di-expand: channel L/R disusun kiri-kanan
         let audioCtx = null;
         let vizBus = null;
         let vizAnalysers = [];
@@ -1605,17 +1662,19 @@
             ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
             ctx.clearRect(0, 0, w, h);
 
-            const labelW = 14, rowGap = 6;
-            const rowH = (h - rowGap) / 2;
-            const gx = labelW + 6, gw = w - gx;
+            const labelW = 14, rowGap = 6, side = vizSide, colGap = 20;
+            const rowH = side ? h : (h - rowGap) / 2;
+            const colW = side ? (w - colGap) / 2 : w;
+            const gx = side ? 0 : labelW + 6, gw = colW - gx;
             const bw = gw / VIZ_BARS, pad = Math.min(2, bw * 0.3);
 
             ['L', 'R'].forEach((name, ch) => {
-                const y0 = ch * (rowH + rowGap);
+                const y0 = side ? 0 : ch * (rowH + rowGap);
+                const xo = side ? ch * (colW + colGap) : 0;
                 ctx.fillStyle = '#94a3b8';
                 ctx.font = '600 11px "Segoe UI", system-ui, sans-serif';
                 ctx.textBaseline = 'middle';
-                ctx.fillText(name, 0, y0 + rowH / 2);
+                ctx.fillText(name, xo + (side ? 4 : 0), side ? y0 + 10 : y0 + rowH / 2);
 
                 const grad = ctx.createLinearGradient(0, y0 + rowH, 0, y0);
                 grad.addColorStop(0, '#10b981');
@@ -1624,7 +1683,7 @@
                 grad.addColorStop(1, '#ef4444');
 
                 for (let i = 0; i < VIZ_BARS; i++) {
-                    const x = gx + i * bw;
+                    const x = xo + gx + i * bw;
                     const lvl = vizLevels[ch][i];
                     const bh = Math.max(2, lvl * rowH);
                     ctx.fillStyle = 'rgba(255,255,255,0.05)';
@@ -1881,6 +1940,168 @@
             renameBlurSuspended = false;
             focusRenameInput();
         }
+
+        // ===== Expand / Collapse panel (transisi morph) =====
+        // Panel dipindah ke overlay (tempat aslinya diganti placeholder kosong). Tiap elemen di dalamnya dianimasikan
+        // dari posisi lama ke posisi baru (FLIP), sementara "cangkang" panel membesar dari tempat asal ke tengah.
+        const EXP_MS = 560, EXP_EASE = 'cubic-bezier(.22,.8,.24,1)';
+        const EXP_TRACK = '.section-header h3, .section-header .btn, .section-header .exp-btn, .anim-panel, .fade-control-bar, .viz-panel, .list-item';
+        const EXP_ICON_ON = `<svg viewBox="0 0 24 24"><polyline points="15 3 21 3 21 9"></polyline><polyline points="9 21 3 21 3 15"></polyline><line x1="21" y1="3" x2="14" y2="10"></line><line x1="3" y1="21" x2="10" y2="14"></line></svg>`;
+        const EXP_ICON_OFF = `<svg viewBox="0 0 24 24"><polyline points="4 14 10 14 10 20"></polyline><polyline points="20 10 14 10 14 4"></polyline><line x1="14" y1="10" x2="21" y2="3"></line><line x1="3" y1="21" x2="10" y2="14"></line></svg>`;
+        const SHELL_ON = { borderRadius: '14px', borderColor: '#475569', boxShadow: '0 30px 80px rgba(0,0,0,0.6)' };
+        const SHELL_OFF = { borderRadius: '0px', borderColor: 'rgba(71,85,105,0)', boxShadow: '0 0 0 rgba(0,0,0,0)' };
+        let expState = null, expBusy = false;
+
+        const expBox = r => ({ left: r.left + 'px', top: r.top + 'px', width: r.width + 'px', height: r.height + 'px' });
+        const expRects = sec => { const m = new Map(); sec.querySelectorAll(EXP_TRACK).forEach(el => m.set(el, el.getBoundingClientRect())); return m; };
+
+        function expMorph(sec, first, last, lf, ll) {
+            const vis = (r, L) => r.bottom > L.top + 2 && r.top < L.bottom - 2;
+            const o = { duration: EXP_MS, easing: EXP_EASE, fill: 'both' };
+            const anims = [];
+            last.forEach((l, el) => {
+                const f = first.get(el);
+                const inList = el.classList.contains('list-item');
+                let kf;
+                if (!f || (inList && (!vis(f, lf) || !vis(l, ll)))) {
+                    kf = [{ opacity: 0 }, { opacity: inList && !vis(l, ll) ? 0 : 1 }];
+                } else {
+                    const flat = el.matches('h3, .btn, .exp-btn');
+                    const sc = flat ? '' : ` scale(${f.width / (l.width || 1)}, ${f.height / (l.height || 1)})`;
+                    kf = [{ transformOrigin: '0 0', transform: `translate(${f.left - l.left}px, ${f.top - l.top}px)${sc}` },
+                          { transformOrigin: '0 0', transform: 'none' }];
+                }
+                anims.push(el.animate(kf, o));
+            });
+            const head = sec.querySelector('.section-header');
+            if (head) anims.push(head.animate([{ backgroundColor: 'rgba(0,0,0,0)' }, { backgroundColor: 'rgba(0,0,0,0.2)' }], o));
+            return anims;
+        }
+
+        // Preview proyektor di dalam panel Latar Belakang yang di-expand (rasio mengikuti jendela proyektor)
+        function expPreviewAdd(sec) {
+            const wrap = document.createElement('div');
+            wrap.className = 'exp-preview-area';
+            wrap.innerHTML = '<div class="exp-stage" id="exp-preview-stage"><div class="empty-state" id="exp-preview-empty"></div></div>';
+            sec.appendChild(wrap);
+            syncPreviewAspect();
+            expPreviewSync(true, false);
+            return wrap;
+        }
+
+        function expPreviewSync(instant, wasShowing) {
+            const stage = document.getElementById('exp-preview-stage');
+            if (!stage) return;
+            const empty = document.getElementById('exp-preview-empty');
+            const ab = backgrounds.find(b => b.id === activeBgId);
+            const src = (ab && !isBlackout) ? ab.url : null;
+            stageUpdate(stage, src, instant);
+            empty.innerHTML = document.getElementById('preview-empty').innerHTML;
+            clearTimeout(stage._t);
+            if (src) { empty.style.display = 'none'; return; }
+            const d = (!instant && wasShowing && animSettings.out !== 'none') ? animDurationMs() : 0;
+            if (d) { empty.style.display = 'none'; stage._t = setTimeout(() => { empty.style.display = 'flex'; }, d); }
+            else empty.style.display = 'flex';
+        }
+
+        function toggleExpand(kind) { if (expState) collapsePanel(); else expandPanel(kind); }
+
+        function expandPanel(kind) {
+            if (expState || expBusy) return;
+            const sec = document.getElementById(kind === 'bg' ? 'sec-bg' : 'sec-audio');
+            if (!sec) return;
+            if (renameState) finishRename(true);
+            expBusy = true;
+            const r0 = sec.getBoundingClientRect();
+            const first = expRects(sec);
+            const listEl = sec.querySelector('.item-list');
+            const lf = listEl.getBoundingClientRect();
+
+            const ph = document.createElement('div');   // slot asli dibiarkan kosong
+            ph.className = 'panel-section exp-placeholder';
+            ph.style.cssText = `flex:${getComputedStyle(sec).flex};height:${r0.height}px;`;
+            sec.parentNode.insertBefore(ph, sec);
+
+            const ov = document.createElement('div'); ov.className = 'exp-overlay';
+            const backdrop = document.createElement('div'); backdrop.className = 'exp-backdrop';
+            backdrop.addEventListener('click', () => collapsePanel());
+            const shell = document.createElement('div'); shell.className = 'exp-shell';
+            ov.append(backdrop, shell, sec);
+            document.body.appendChild(ov);
+
+            const det = sec.querySelector('.anim-panel');
+            expState = { kind, sec, ph, ov, backdrop, shell, wasOpen: det ? det.open : false, preview: null };
+            sec.classList.add('exp-mode', 'exp-' + kind, 'exp-anim');
+            if (det) det.open = true;                       // dropdown animasi otomatis terbuka
+            vizSide = kind === 'audio';
+            if (kind === 'bg') expState.preview = expPreviewAdd(sec);
+            const btn = sec.querySelector('.exp-btn');
+            btn.innerHTML = EXP_ICON_OFF; btn.title = 'Perkecil'; btn.setAttribute('aria-label', 'Perkecil panel');
+            document.documentElement.classList.add('modal-open');   // kunci scroll latar
+            document.querySelector('.app').inert = true;            // kunci klik & fokus latar
+            drawViz();
+
+            const fr = sec.getBoundingClientRect();
+            Object.assign(shell.style, expBox(fr));
+            const anims = expMorph(sec, first, expRects(sec), lf, listEl.getBoundingClientRect());
+            anims.push(shell.animate([{ ...expBox(r0), ...SHELL_OFF }, { ...expBox(fr), ...SHELL_ON }], { duration: EXP_MS, easing: EXP_EASE, fill: 'both' }));
+            anims.push(backdrop.animate([{ opacity: 0 }, { opacity: 1 }], { duration: EXP_MS, easing: 'ease', fill: 'both' }));
+            if (expState.preview) anims.push(expState.preview.animate([{ opacity: 0, transform: 'scale(0.88)' }, { opacity: 1, transform: 'none' }], { duration: EXP_MS, easing: EXP_EASE, fill: 'both' }));
+            setTimeout(() => {
+                anims.forEach(a => a.cancel());
+                sec.classList.remove('exp-anim');
+                shell.remove();
+                expBusy = false;
+                drawViz();
+                btn.focus();
+            }, EXP_MS + 40);
+        }
+
+        function collapsePanel() {
+            if (!expState || expBusy) return;
+            if (renameState) finishRename(true);
+            expBusy = true;
+            const { kind, sec, ph, ov, backdrop, shell, wasOpen, preview } = expState;
+            const listEl = sec.querySelector('.item-list');
+            const first = expRects(sec), lf = listEl.getBoundingClientRect();
+            const fr = sec.getBoundingClientRect(), r0 = ph.getBoundingClientRect();
+            if (preview) { const pr = preview.getBoundingClientRect(); Object.assign(preview.style, { position: 'fixed', margin: '0', ...expBox(pr) }); }
+
+            Object.assign(shell.style, expBox(fr));
+            ov.insertBefore(shell, sec);
+            sec.classList.remove('exp-mode', 'exp-' + kind);
+            sec.classList.add('exp-anim', 'exp-collapsing');
+            Object.assign(sec.style, expBox(r0));           // susunan kembali ke bentuk semula, tepat di slot asalnya
+            const det = sec.querySelector('.anim-panel');
+            if (det) det.open = wasOpen;
+            vizSide = false;
+            drawViz();
+            const btn = sec.querySelector('.exp-btn');
+            btn.innerHTML = EXP_ICON_ON; btn.title = 'Perbesar'; btn.setAttribute('aria-label', 'Perbesar panel');
+
+            const anims = expMorph(sec, first, expRects(sec), lf, listEl.getBoundingClientRect());
+            anims.push(shell.animate([{ ...expBox(fr), ...SHELL_ON }, { ...expBox(r0), ...SHELL_OFF }], { duration: EXP_MS, easing: EXP_EASE, fill: 'both' }));
+            anims.push(backdrop.animate([{ opacity: 1 }, { opacity: 0 }], { duration: EXP_MS, easing: 'ease', fill: 'both' }));
+            if (preview) anims.push(preview.animate([{ opacity: 1, transform: 'none' }, { opacity: 0, transform: 'scale(0.88)' }], { duration: EXP_MS, easing: EXP_EASE, fill: 'both' }));
+            setTimeout(() => {
+                anims.forEach(a => a.cancel());
+                if (preview) preview.remove();
+                ph.replaceWith(sec);
+                sec.removeAttribute('style');
+                sec.className = 'panel-section';
+                ov.remove();
+                expState = null; expBusy = false;
+                document.querySelector('.app').inert = false;
+                document.documentElement.classList.remove('modal-open');
+                drawViz();
+            }, EXP_MS + 40);
+        }
+
+        document.addEventListener('keydown', (e) => {
+            if (e.key !== 'Escape' || !expState || expBusy || renameState) return;
+            if (!document.getElementById('confirm-overlay').hidden) return;
+            collapsePanel();
+        });
     </script>
 </body>
 </html>
