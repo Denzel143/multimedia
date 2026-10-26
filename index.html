@@ -419,7 +419,51 @@
         // --- Window Management ---
         let projectorCheckInterval = null;
 
-        async function toggleProjectorWindow() {
+        // Cache info layar eksternal (hanya jika izin Window Management sudah diberikan)
+        let cachedScreenDetails = null;
+        async function refreshScreenDetails(requestPermission) {
+            try {
+                if (!('getScreenDetails' in window)) return;
+                if (!requestPermission && navigator.permissions) {
+                    const st = await navigator.permissions.query({ name: 'window-management' });
+                    if (st.state !== 'granted') return;
+                }
+                cachedScreenDetails = await window.getScreenDetails();
+                cachedScreenDetails.addEventListener('screenschange', () => refreshScreenDetails(false));
+            } catch (err) {}
+        }
+        document.addEventListener('DOMContentLoaded', () => refreshScreenDetails(false));
+
+        function getExternalScreen() {
+            if (!cachedScreenDetails) return null;
+            return cachedScreenDetails.screens.find(s => s !== cachedScreenDetails.currentScreen) || null;
+        }
+
+        // --- Fullscreen tanpa gestur (butuh izin "Automatic Fullscreen" / kebijakan enterprise Chrome) ---
+        async function hasGesturelessFullscreen() {
+            try {
+                const st = await navigator.permissions.query({ name: 'fullscreen', allowWithoutGesture: true });
+                return st.state === 'granted';
+            } catch (e) { return false; }
+        }
+
+        function requestProjectorFullscreen(screen) {
+            if (!projectorWindow || projectorWindow.closed) return Promise.resolve(false);
+            const doc = projectorWindow.document;
+            if (doc.fullscreenElement) return Promise.resolve(true);
+            const el = doc.documentElement;
+            const plain = () => el.requestFullscreen().then(() => true).catch(() => false);
+            try {
+                if (screen) {
+                    // Fullscreen di layar eksternal tertentu; jika gagal, coba fullscreen biasa
+                    return el.requestFullscreen({ screen }).then(() => true).catch(plain);
+                }
+                return plain();
+            } catch (e) { return Promise.resolve(false); }
+        }
+
+        function toggleProjectorWindow() {
+            // PENTING: tidak boleh ada "await" sebelum window.open agar tidak diblokir popup blocker
             if (projectorWindow && !projectorWindow.closed) {
                 projectorWindow.close();
                 projectorWindow = null;
@@ -427,26 +471,58 @@
                 return;
             }
 
-            let features = 'width=1280,height=720';
-            try {
-                if ('getScreenDetails' in window) {
-                    const screenDetails = await window.getScreenDetails();
-                    const extScreen = screenDetails.screens.find(s => s !== screenDetails.currentScreen);
-                    if (extScreen) {
-                        features = `left=${extScreen.availLeft},top=${extScreen.availTop},width=${extScreen.availWidth},height=${extScreen.availHeight}`;
-                    }
-                }
-            } catch (err) {}
+            let features = 'popup=yes,width=1280,height=720';
+            const extScreen = getExternalScreen();
+            if (extScreen) {
+                features = `popup=yes,left=${extScreen.availLeft},top=${extScreen.availTop},width=${extScreen.availWidth},height=${extScreen.availHeight}`;
+            }
 
             projectorWindow = window.open('', 'Projector', features);
-            const projHTML = '<!DOCTYPE html><html><head><title>Layar Proyektor</title><style>body { margin: 0; padding: 0; background-color: #000; height: 100vh; width: 100vw; display: flex; align-items: center; justify-content: center; overflow: hidden; container-type: size; } #projector-img { display: none; object-fit: contain; }</style></head><body><img id="projector-img" src="" /></body></html>';
+            if (!projectorWindow) {
+                alert('Jendela proyektor diblokir browser. Izinkan pop-up untuk halaman ini lalu coba lagi.');
+                return;
+            }
+
+            const projHTML = '<!DOCTYPE html><html><head><title>Layar Proyektor</title><style>'
+                + 'body { margin: 0; padding: 0; background-color: #000; height: 100vh; width: 100vw; display: flex; align-items: center; justify-content: center; overflow: hidden; container-type: size; cursor: none; }'
+                + '#projector-img { display: none; object-fit: contain; }'
+                + '#fs-hint { position: fixed; bottom: 16px; left: 50%; transform: translateX(-50%); color: #fff; background: rgba(255,255,255,0.15); font: 14px sans-serif; padding: 8px 16px; border-radius: 999px; cursor: pointer; }'
+                + '</style></head><body><img id="projector-img" src="" /><div id="fs-hint">Klik di mana saja untuk layar penuh</div>'
+                + '<script>'
+                + 'var hint=document.getElementById("fs-hint");'
+                + 'function goFS(){var el=document.documentElement;if(!document.fullscreenElement&&el.requestFullscreen){var r=el.requestFullscreen();if(r&&r.catch)r.catch(function(){});}}'
+                + 'function updHint(){hint.style.display=document.fullscreenElement?"none":"block";}'
+                + 'document.addEventListener("fullscreenchange",updHint);'
+                + 'document.addEventListener("click",goFS);'
+                + 'document.addEventListener("keydown",function(e){if(e.key!=="Escape")goFS();});'
+                + 'window.addEventListener("load",goFS);'
+                + '<\/script></body></html>';
             projectorWindow.document.write(projHTML);
             projectorWindow.document.close();
-            
-            try { projectorWindow.document.documentElement.requestFullscreen(); } catch(e) {}
-            
+
+            // Fullscreen otomatis tanpa gestur: langsung, lalu ulangi setelah jendela selesai load
+            requestProjectorFullscreen(extScreen);
+            projectorWindow.addEventListener('load', () => requestProjectorFullscreen(getExternalScreen()));
+            hasGesturelessFullscreen().then(ok => {
+                if (!ok) console.info('Fullscreen tanpa gestur belum diizinkan browser; klik di layar proyektor untuk layar penuh.');
+            });
+
             syncScreens();
             updateProjectorButton();
+
+            // Jika belum ada info layar eksternal, minta (async) lalu pindahkan jendela ke layar tsb
+            if (!extScreen) {
+                refreshScreenDetails(true).then(() => {
+                    const ext = getExternalScreen();
+                    if (ext && projectorWindow && !projectorWindow.closed) {
+                        try {
+                            projectorWindow.moveTo(ext.availLeft, ext.availTop);
+                            projectorWindow.resizeTo(ext.availWidth, ext.availHeight);
+                            requestProjectorFullscreen(ext);
+                        } catch (e) {}
+                    }
+                });
+            }
 
             if (projectorCheckInterval) clearInterval(projectorCheckInterval);
             projectorCheckInterval = setInterval(() => {
