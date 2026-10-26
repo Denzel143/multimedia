@@ -105,7 +105,8 @@
         .btn-icon.active { color: var(--accent-green); }
 
         .screen-container {
-            flex: 1;
+            flex: 1 1 auto;
+            height: 100%;
             background-color: #000;
             border: 2px solid var(--border);
             border-radius: 12px;
@@ -233,6 +234,9 @@
         /* Audio Player Sliders */
         .seek-slider {
             -webkit-appearance: none;
+            appearance: none;
+            --thumb: 10px;
+            --p: 0;
             width: 100%;
             background: transparent;
             height: 16px;
@@ -250,16 +254,22 @@
             width: 100%;
             height: 3px;
             cursor: pointer;
-            background: rgba(255,255,255,0.2);
+            background: linear-gradient(to right,
+                var(--accent-green) calc(var(--thumb) / 2 + (100% - var(--thumb)) * var(--p)),
+                rgba(255,255,255,0.2) calc(var(--thumb) / 2 + (100% - var(--thumb)) * var(--p)));
             border-radius: 2px;
         }
-        
-        #fade-slider {
+        /* Firefox */
+        .seek-slider::-moz-range-track { height: 3px; background: rgba(255,255,255,0.2); border-radius: 2px; }
+        .seek-slider::-moz-range-progress { height: 3px; background: var(--accent-green); border-radius: 2px; }
+        .seek-slider::-moz-range-thumb { height: 10px; width: 10px; border: none; border-radius: 50%; background: var(--accent-green); cursor: pointer; }
+
+        #fade-slider, #anim-duration {
             -webkit-appearance: none;
             background: transparent;
             height: 16px;
         }
-        #fade-slider::-webkit-slider-thumb {
+        #fade-slider::-webkit-slider-thumb, #anim-duration::-webkit-slider-thumb {
             -webkit-appearance: none;
             height: 12px; width: 12px;
             border-radius: 50%;
@@ -267,7 +277,7 @@
             cursor: pointer;
             margin-top: -4.5px;
         }
-        #fade-slider::-webkit-slider-runnable-track {
+        #fade-slider::-webkit-slider-runnable-track, #anim-duration::-webkit-slider-runnable-track {
             width: 100%; height: 3px; cursor: pointer;
             background: rgba(255,255,255,0.2); border-radius: 2px;
         }
@@ -276,8 +286,126 @@
         .header { flex-wrap: wrap; gap: 12px; }
         .header h1 { font-size: clamp(1.15rem, 3.5vw, 1.5rem); }
         .header-controls { flex-wrap: wrap; }
+        .header-title { display: flex; align-items: center; gap: 12px 16px; flex-wrap: wrap; min-width: 0; }
+        .time-chips { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+        .time-chip {
+            display: flex; align-items: center; gap: 6px;
+            padding: 5px 10px;
+            background-color: var(--bg-panel);
+            border: 1px solid var(--border);
+            border-radius: 999px;
+            font-size: 0.85rem;
+            color: var(--text-muted);
+            font-variant-numeric: tabular-nums;
+            white-space: nowrap;
+        }
+        .time-chip svg { width: 14px; height: 14px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+        .time-chip span { color: var(--text-main); font-weight: 600; }
         .list-item { gap: 8px; }
         .item-thumb { flex-shrink: 0; }
+        .item-name.is-current { color: var(--accent-green); }
+        .viz-panel { padding: 8px 16px; background-color: rgba(0,0,0,0.15); border-bottom: 1px solid var(--border); }
+        #viz-canvas { display: block; width: 100%; height: 64px; }
+        .item-name { touch-action: manipulation; }   /* double-tap di layar sentuh dibaca sebagai klik dua kali */
+        .rename-input {
+            flex: 1;
+            min-width: 0;
+            background-color: var(--bg-base);
+            color: var(--text-main);
+            border: 1px solid var(--accent-blue);
+            border-radius: 4px;
+            padding: 3px 6px;
+            font-size: 0.9rem;
+            outline: none;
+        }
+
+        /* Area preview: pembungkus agar kotak preview bisa mengikuti rasio layar proyektor */
+        .preview-area {
+            flex: 1;
+            min-height: 0;
+            min-width: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            container-type: size;
+        }
+        /* Mode cermin: proyektor terbuka -> preview memakai rasio layar proyektor (--ar = lebar / tinggi) */
+        .screen-container.mirror {
+            flex: none;
+            height: auto;
+            aspect-ratio: var(--ar, 1.7778);
+            width: min(100cqw, calc(100cqh * var(--ar, 1.7778)));
+        }
+
+        /* Overlay konfirmasi */
+        .modal-overlay {
+            position: fixed;
+            inset: 0;
+            z-index: 1000;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 16px;
+            background: rgba(2, 6, 23, 0.7);
+            backdrop-filter: blur(3px);
+            overscroll-behavior: contain;
+            touch-action: none;
+        }
+        .modal-overlay[hidden] { display: none; }
+        .modal-card {
+            width: min(100%, 380px);
+            background-color: var(--bg-panel);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 20px;
+            box-shadow: 0 20px 50px rgba(0,0,0,0.5);
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+        .modal-head { display: flex; align-items: center; gap: 12px; }
+        .modal-icon {
+            width: 40px; height: 40px; flex-shrink: 0;
+            border-radius: 50%;
+            background-color: rgba(239,68,68,0.15);
+            color: var(--danger);
+            display: flex; align-items: center; justify-content: center;
+        }
+        .modal-icon svg { width: 22px; height: 22px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+        .modal-card h3 { font-size: 1.05rem; }
+        .modal-card p { font-size: 0.9rem; color: var(--text-muted); line-height: 1.5; overflow-wrap: anywhere; }
+        .modal-card p strong { color: var(--text-main); font-weight: 600; }
+        .modal-card p.modal-note { color: #fbbf24; }
+        .modal-actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 4px; }
+        .btn-secondary { background-color: var(--bg-card); border: 1px solid var(--border); }
+        .btn-secondary:hover { background-color: #3f4d63; }
+        .btn-danger { background-color: var(--danger); }
+        .btn-danger:hover { background-color: #dc2626; }
+        .btn-success { background-color: var(--accent-green); }
+        .btn-success:hover { background-color: #059669; }
+        .btn:focus-visible { outline: 2px solid var(--accent-blue); outline-offset: 2px; }
+        /* Kunci scroll halaman selama overlay tampil */
+        html.modal-open, html.modal-open body { overflow: hidden; }
+
+        /* Panel animasi latar */
+        .anim-panel { background-color: var(--bg-card); border-bottom: 1px solid var(--border); }
+        .anim-panel summary {
+            padding: 10px 16px; cursor: pointer; list-style: none;
+            font-size: 0.85rem; color: var(--text-muted);
+            display: flex; align-items: center; justify-content: space-between;
+        }
+        .anim-panel summary::-webkit-details-marker { display: none; }
+        .anim-panel summary::after { content: '\25BE'; transition: transform 0.2s; }
+        .anim-panel[open] summary::after { transform: rotate(180deg); }
+        .anim-panel summary:hover { color: var(--text-main); }
+        .anim-grid {
+            display: grid; grid-template-columns: auto minmax(0, 1fr);
+            gap: 8px 12px; align-items: center;
+            padding: 2px 16px 12px; font-size: 0.8rem; color: var(--text-muted);
+        }
+        .anim-grid select { width: 100%; min-width: 0; padding: 6px 10px; font-size: 0.85rem; }
+        .anim-duration { display: flex; align-items: center; gap: 8px; }
+        #anim-duration-val { font-size: 0.85rem; color: var(--accent-blue); font-weight: bold; width: 35px; text-align: right; }
         .item-info > div { flex-shrink: 0; }
         .item-info > div svg { width: 100%; height: 100%; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
         .item-actions { flex-shrink: 0; }
@@ -296,6 +424,13 @@
                 aspect-ratio: 16 / 9;
                 max-height: 70vh;
                 max-height: 70dvh;
+                height: auto;
+            }
+            .preview-area { flex: none; container-type: normal; }
+            .screen-container.mirror {
+                max-height: none;
+                aspect-ratio: var(--ar, 1.7778);
+                width: min(100%, calc(70dvh * var(--ar, 1.7778)));
             }
             .sidebar {
                 width: 100%;
@@ -310,10 +445,12 @@
         /* Ponsel kecil */
         @media (max-width: 520px) {
             .header { flex-direction: column; align-items: stretch; }
-            .header-controls { width: 100%; flex-wrap: nowrap; }
-            .ratio-select { flex: 1; min-width: 0; }
+            .header-controls { width: 100%; flex-wrap: wrap; }
+            .ratio-select { flex: 1 1 100%; min-width: 0; }
+            .header-controls .btn { flex: 1; justify-content: center; }
             .btn { padding: 8px 12px; font-size: 0.9rem; white-space: nowrap; }
             .fade-control-bar { padding: 10px 12px; }
+            .viz-panel { padding: 8px 12px; }
             .section-header { padding: 12px; }
             .item-list { padding: 8px; }
             .remain-time { display: none; }
@@ -321,13 +458,15 @@
 
         /* Layar sentuh: target sentuh lebih besar */
         @media (pointer: coarse) {
+            .rename-input { font-size: 16px; }
             .btn-icon { padding: 10px; }
             .btn-icon svg { width: 22px; height: 22px; }
             .btn { min-height: 40px; }
-            .seek-slider { height: 28px; }
+            .seek-slider { height: 28px; --thumb: 18px; }
             .seek-slider::-webkit-slider-thumb { height: 18px; width: 18px; margin-top: -7.5px; }
-            #fade-slider { height: 28px; }
-            #fade-slider::-webkit-slider-thumb { height: 20px; width: 20px; margin-top: -8.5px; }
+            .seek-slider::-moz-range-thumb { height: 18px; width: 18px; }
+            #fade-slider, #anim-duration { height: 28px; }
+            #fade-slider::-webkit-slider-thumb, #anim-duration::-webkit-slider-thumb { height: 20px; width: 20px; margin-top: -8.5px; }
         }
     </style>
 </head>
@@ -337,7 +476,19 @@
         <!-- Preview Panel -->
         <div class="preview-panel">
             <div class="header">
-                <h1>Dasbor Kontroler</h1>
+                <div class="header-title">
+                    <h1>Dasbor Kontroler</h1>
+                    <div class="time-chips">
+                        <div class="time-chip" title="Jam saat ini">
+                            <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"></circle><polyline points="12 7 12 12 15 14"></polyline></svg>
+                            <span id="clock-now">--:--:--</span>
+                        </div>
+                        <div class="time-chip" title="Stopwatch (berjalan sejak skrip dijalankan)">
+                            <svg viewBox="0 0 24 24"><circle cx="12" cy="13" r="8"></circle><polyline points="12 9 12 13 14.5 15"></polyline><line x1="9" y1="2" x2="15" y2="2"></line><line x1="12" y1="2" x2="12" y2="5"></line></svg>
+                            <span id="stopwatch">00:00:00</span>
+                        </div>
+                    </div>
+                </div>
                 <div class="header-controls">
                     <select id="ratio-select" class="ratio-select" onchange="changeRatio(this.value)">
                         <option value="auto">Rasio Asli (Fit)</option>
@@ -346,6 +497,10 @@
                         <option value="4/3">4:3 (Stretch)</option>
                         <option value="1/1">1:1 (Stretch)</option>
                     </select>
+                    <button id="off-all-btn" class="btn btn-danger" onclick="turnOffAll()" title="Blackout seluruh layar dan jeda suara latar (dengan fade keluar)">
+                        <svg viewBox="0 0 24 24"><path d="M18.36 6.64a9 9 0 1 1-12.73 0"></path><line x1="12" y1="2" x2="12" y2="12"></line></svg>
+                        Matikan Semua
+                    </button>
                     <button id="projector-btn" class="btn btn-primary" onclick="toggleProjectorWindow()">
                         <svg viewBox="0 0 24 24"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"></rect><line x1="8" y1="21" x2="16" y2="21"></line><line x1="12" y1="17" x2="12" y2="21"></line></svg>
                         Buka Proyektor
@@ -353,12 +508,13 @@
                 </div>
             </div>
             
-            <div class="screen-container">
+            <div class="preview-area" id="preview-area">
+            <div class="screen-container" id="preview-stage">
                 <div class="empty-state" id="preview-empty">
                     <svg style="width:48px;height:48px;" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><circle cx="8.5" cy="8.5" r="1.5"></circle><polyline points="21 15 16 10 5 21"></polyline></svg>
                     <p>Tidak Ada Latar Aktif</p>
                 </div>
-                <img id="preview-img" class="screen-img" src="" alt="Preview">
+            </div>
             </div>
         </div>
 
@@ -374,6 +530,22 @@
                     </button>
                     <input type="file" id="bg-input" class="hidden-input" accept="image/*" multiple onchange="handleUpload(event, 'bg')">
                 </div>
+                <details class="anim-panel" id="anim-panel">
+                    <summary>Animasi Latar</summary>
+                    <div class="anim-grid">
+                        <label for="anim-in">Saat tampil</label>
+                        <select id="anim-in" class="ratio-select" onchange="onAnimChange()"></select>
+                        <label for="anim-out">Saat dimatikan</label>
+                        <select id="anim-out" class="ratio-select" onchange="onAnimChange()"></select>
+                        <label for="anim-swap">Saat ganti</label>
+                        <select id="anim-swap" class="ratio-select" onchange="onAnimChange()"></select>
+                        <label for="anim-duration">Durasi</label>
+                        <div class="anim-duration">
+                            <input type="range" id="anim-duration" min="0.2" max="3" step="0.1" value="0.8" style="flex:1;" oninput="onAnimChange()">
+                            <span id="anim-duration-val">0.8s</span>
+                        </div>
+                    </div>
+                </details>
                 <div class="item-list" id="bg-list">Memuat...</div>
             </div>
 
@@ -392,8 +564,12 @@
                         <svg viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" stroke-width="2" fill="none"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
                         Efek Fade:
                     </label>
-                    <input type="range" id="fade-slider" min="0" max="5" step="0.1" value="2.0" style="flex:1;" oninput="document.getElementById('fade-val').innerText = parseFloat(this.value).toFixed(1) + 's'">
+                    <input type="range" id="fade-slider" min="0" max="5" step="0.1" value="2.0" style="flex:1;" oninput="document.getElementById('fade-val').innerText = parseFloat(this.value).toFixed(1) + 's'; saveSettings()">
                     <span id="fade-val" style="font-size: 0.85rem; color: var(--accent-blue); font-weight: bold; width:35px; text-align:right;">2.0s</span>
+                </div>
+                <!-- Visualizer stereo (channel kiri & kanan) -->
+                <div class="viz-panel" title="Visualizer dua channel: kiri (L) dan kanan (R)">
+                    <canvas id="viz-canvas" aria-label="Visualizer audio kiri dan kanan"></canvas>
                 </div>
                 <div class="item-list" id="audio-list">Memuat...</div>
             </div>
@@ -401,7 +577,45 @@
         </div>
     </div>
 
+    <!-- Overlay konfirmasi hapus -->
+    <div class="modal-overlay" id="confirm-overlay" hidden role="alertdialog" aria-modal="true" aria-labelledby="confirm-title" aria-describedby="confirm-msg">
+        <div class="modal-card">
+            <div class="modal-head">
+                <div class="modal-icon">
+                    <svg viewBox="0 0 24 24"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path><line x1="12" y1="9" x2="12" y2="13"></line><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>
+                </div>
+                <h3 id="confirm-title">Hapus file?</h3>
+            </div>
+            <p id="confirm-msg"></p>
+            <p id="confirm-note" class="modal-note" hidden></p>
+            <div class="modal-actions">
+                <button type="button" class="btn btn-secondary" id="confirm-cancel">Batal</button>
+                <button type="button" class="btn btn-danger" id="confirm-ok">Hapus</button>
+            </div>
+        </div>
+    </div>
+
     <script>
+        // --- Jam & stopwatch ---
+        // Stopwatch otomatis mulai saat skrip ini dijalankan; dihitung dari selisih waktu (bukan penambah),
+        // sehingga tetap akurat walau tab di latar belakang dan timer-nya diperlambat browser.
+        const stopwatchStartedAt = Date.now();
+        const pad2 = (n) => String(n).padStart(2, '0');
+        function formatClock(d) { return `${pad2(d.getHours())}:${pad2(d.getMinutes())}:${pad2(d.getSeconds())}`; }
+        function formatElapsed(ms) {
+            const t = Math.max(0, Math.floor(ms / 1000));
+            return `${pad2(Math.floor(t / 3600))}:${pad2(Math.floor((t % 3600) / 60))}:${pad2(t % 60)}`;
+        }
+        function tickClocks() {
+            const now = Date.now();
+            const clockEl = document.getElementById('clock-now');
+            const swEl = document.getElementById('stopwatch');
+            if (clockEl) clockEl.textContent = formatClock(new Date(now));
+            if (swEl) swEl.textContent = formatElapsed(now - stopwatchStartedAt);
+        }
+        tickClocks();
+        setInterval(tickClocks, 250);
+
         // --- Setup Database (IndexedDB) ---
         const dbName = "PresentationControlDB";
         let db;
@@ -445,10 +659,104 @@
         let backsounds = [];
         let activeAudioElement = null;
         let playingAudioId = null;
+        let lastAudioId = null; // audio yang terakhir tampil/diputar (tetap hijau walau sudah selesai)
+        // Tombol "Matikan Semua": null = mode "Matikan Semua"; objek { bgId, audioId } = mode "Nyalakan Kembali"
+        // (menyimpan apa yang tadi dimatikan agar bisa dikembalikan ke posisi terakhir)
+        let offAllSnapshot = null;
+        // Rename nama file lewat klik dua kali: { kind: 'bg' | 'audio', id, value, selectAll } atau null
+        let renameState = null;
+        let renameBlurSuspended = false;   // true saat daftar digambar ulang agar blur otomatis tidak dianggap "klik di luar"
         let projectorWindow = null;
+
+        // --- Pengaturan tersimpan (localStorage) ---
+        // Berisi nilai yang bisa diubah pengguna; file media tetap di IndexedDB.
+        const SETTINGS_KEY = 'presentationControl.settings.v1';
+
+        const ANIM_OPTIONS = {
+            in: [['none', 'Tanpa animasi'], ['black', 'Black fade (dari hitam)'], ['zoom', 'Zoom masuk'],
+                 ['slide', 'Geser dari kanan'], ['up', 'Naik dari bawah'], ['blur', 'Blur masuk']],
+            out: [['none', 'Tanpa animasi'], ['black', 'Black fade (ke hitam)'], ['zoom', 'Zoom keluar'],
+                  ['slide', 'Geser ke kiri'], ['down', 'Turun ke bawah'], ['blur', 'Blur keluar']],
+            swap: [['none', 'Tanpa animasi'], ['black', 'Black fade (lewat hitam)'], ['cross', 'Cross dissolve'],
+                   ['slide', 'Geser'], ['zoom', 'Zoom'], ['blur', 'Blur dissolve']]
+        };
+        const animSettings = { in: 'black', out: 'black', swap: 'black', duration: 0.8 };
+        const animDurationMs = () => Math.round(animSettings.duration * 1000);
+
+        function updateAnimDurationLabel() {
+            document.getElementById('anim-duration-val').innerText = animSettings.duration.toFixed(1) + 's';
+        }
+
+        function initAnimControls() {
+            const ids = { in: 'anim-in', out: 'anim-out', swap: 'anim-swap' };
+            Object.keys(ids).forEach(k => {
+                const sel = document.getElementById(ids[k]);
+                sel.innerHTML = ANIM_OPTIONS[k].map(o => `<option value="${o[0]}">${o[1]}</option>`).join('');
+                sel.value = animSettings[k];
+            });
+            document.getElementById('anim-duration').value = animSettings.duration;
+            updateAnimDurationLabel();
+        }
+
+        function onAnimChange() {
+            animSettings.in = document.getElementById('anim-in').value;
+            animSettings.out = document.getElementById('anim-out').value;
+            animSettings.swap = document.getElementById('anim-swap').value;
+            animSettings.duration = parseFloat(document.getElementById('anim-duration').value) || 0.8;
+            updateAnimDurationLabel();
+            saveSettings();
+        }
+
+        function saveSettings() {
+            try {
+                localStorage.setItem(SETTINGS_KEY, JSON.stringify({
+                    ratio: currentRatio,
+                    fade: parseFloat(document.getElementById('fade-slider').value),
+                    activeBgId: activeBgId,
+                    lastAudioId: lastAudioId,
+                    isBlackout: isBlackout,
+                    anim: { in: animSettings.in, out: animSettings.out, swap: animSettings.swap, duration: animSettings.duration }
+                }));
+            } catch (e) {}
+        }
+
+        function loadSettings() {
+            try { return JSON.parse(localStorage.getItem(SETTINGS_KEY)) || {}; }
+            catch (e) { return {}; }
+        }
+
+        function applySavedUiSettings(saved) {
+            const select = document.getElementById('ratio-select');
+            const validRatios = Array.from(select.options).map(o => o.value);
+            if (validRatios.includes(saved.ratio)) {
+                currentRatio = saved.ratio;
+                select.value = saved.ratio;
+            }
+            const a = saved.anim || {};
+            const ids = { in: 'anim-in', out: 'anim-out', swap: 'anim-swap' };
+            Object.keys(ids).forEach(k => {
+                if (ANIM_OPTIONS[k].some(o => o[0] === a[k])) {
+                    animSettings[k] = a[k];
+                    document.getElementById(ids[k]).value = a[k];
+                }
+            });
+            const dur = parseFloat(a.duration);
+            if (isFinite(dur) && dur >= 0.2 && dur <= 3) {
+                animSettings.duration = dur;
+                document.getElementById('anim-duration').value = dur;
+                updateAnimDurationLabel();
+            }
+            const fadeSlider = document.getElementById('fade-slider');
+            const fade = parseFloat(saved.fade);
+            if (isFinite(fade) && fade >= parseFloat(fadeSlider.min) && fade <= parseFloat(fadeSlider.max)) {
+                fadeSlider.value = fade;
+                document.getElementById('fade-val').innerText = fade.toFixed(1) + 's';
+            }
+        }
 
         // --- Format & Utility ---
         const generateId = () => Math.random().toString(36).substring(2, 9);
+        const esc = (str) => String(str).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
         const formatTime = (sec) => {
             if (isNaN(sec) || sec < 0) sec = 0;
             const m = Math.floor(sec / 60).toString().padStart(2, '0');
@@ -469,6 +777,9 @@
 
         // --- Inisialisasi Aplikasi ---
         document.addEventListener("DOMContentLoaded", async () => {
+            initAnimControls();
+            const savedSettings = loadSettings();
+            applySavedUiSettings(savedSettings);
             await initDB();
             const tx = db.transaction("media", "readonly");
             const request = tx.objectStore("media").getAll();
@@ -476,8 +787,18 @@
                 const all = e.target.result;
                 backgrounds = all.filter(x => x.type === 'bg').map(x => ({...x, url: URL.createObjectURL(x.file)}));
                 backsounds = all.filter(x => x.type === 'audio').map(x => ({...x, url: URL.createObjectURL(x.file)}));
+                // Pulihkan background aktif terakhir (hanya jika filenya masih ada)
+                if (savedSettings.activeBgId && backgrounds.some(b => b.id === savedSettings.activeBgId)) {
+                    activeBgId = savedSettings.activeBgId;
+                    isBlackout = !!savedSettings.isBlackout;
+                }
+                // Pulihkan indikator audio terakhir diputar (hanya jika filenya masih ada)
+                if (savedSettings.lastAudioId && backsounds.some(a => a.id === savedSettings.lastAudioId)) {
+                    lastAudioId = savedSettings.lastAudioId;
+                }
                 renderBackgrounds();
                 renderAudios();
+                syncScreens(true);
             };
         });
 
@@ -527,12 +848,38 @@
             } catch (e) { return Promise.resolve(false); }
         }
 
+        // --- Preview mengikuti rasio layar proyektor ---
+        // Saat proyektor terbuka, kotak preview memakai rasio (lebar : tinggi) yang sama dengan layar proyektor.
+        // Saat ditutup, preview kembali normal (memenuhi area yang tersedia).
+        function setPreviewAspect(w, h) {
+            const stage = document.getElementById('preview-stage');
+            if (!stage) return;
+            if (!(w > 0 && h > 0)) {
+                stage.classList.remove('mirror');
+                stage.style.removeProperty('--ar');
+                return;
+            }
+            const ar = (w / h).toFixed(4);
+            if (stage.style.getPropertyValue('--ar') !== ar) stage.style.setProperty('--ar', ar);
+            stage.classList.add('mirror');
+        }
+
+        function syncPreviewAspect() {
+            if (!projectorWindow || projectorWindow.closed) { setPreviewAspect(0, 0); return; }
+            try {
+                const w = projectorWindow.innerWidth, h = projectorWindow.innerHeight;
+                if (w > 0 && h > 0) setPreviewAspect(w, h);
+            } catch (e) {}
+        }
+
         function toggleProjectorWindow() {
             // PENTING: tidak boleh ada "await" sebelum window.open agar tidak diblokir popup blocker
             if (projectorWindow && !projectorWindow.closed) {
                 projectorWindow.close();
                 projectorWindow = null;
+                clearInterval(projectorCheckInterval);
                 updateProjectorButton();
+                syncPreviewAspect();   // proyektor ditutup: preview kembali normal
                 return;
             }
 
@@ -550,9 +897,9 @@
 
             const projHTML = '<!DOCTYPE html><html><head><title>Layar Proyektor</title><style>'
                 + 'body { margin: 0; padding: 0; background-color: #000; height: 100vh; width: 100vw; display: flex; align-items: center; justify-content: center; overflow: hidden; container-type: size; cursor: none; }'
-                + '#projector-img { display: none; object-fit: contain; }'
-                + '#fs-hint { position: fixed; bottom: 16px; left: 50%; transform: translateX(-50%); color: #fff; background: rgba(255,255,255,0.15); font: 14px sans-serif; padding: 8px 16px; border-radius: 999px; cursor: pointer; }'
-                + '</style></head><body><img id="projector-img" src="" /><div id="fs-hint">Klik di mana saja untuk layar penuh</div>'
+                + '#stage { position: fixed; top: 0; left: 0; right: 0; bottom: 0; overflow: hidden; container-type: size; }'
+                + '#fs-hint { position: fixed; bottom: 16px; left: 50%; transform: translateX(-50%); color: #fff; background: rgba(255,255,255,0.15); font: 14px sans-serif; padding: 8px 16px; border-radius: 999px; cursor: pointer; z-index: 10; }'
+                + '</style></head><body><div id="stage"></div><div id="fs-hint">Klik di mana saja untuk layar penuh</div>'
                 + '<script>'
                 + 'var hint=document.getElementById("fs-hint");'
                 + 'function goFS(){var el=document.documentElement;if(!document.fullscreenElement&&el.requestFullscreen){var r=el.requestFullscreen();if(r&&r.catch)r.catch(function(){});}}'
@@ -572,8 +919,13 @@
                 if (!ok) console.info('Fullscreen tanpa gestur belum diizinkan browser; klik di layar proyektor untuk layar penuh.');
             });
 
-            syncScreens();
+            syncScreens(true);   // jendela baru: tampilkan langsung tanpa animasi
             updateProjectorButton();
+
+            // Preview langsung memakai rasio layar tujuan, lalu mengikuti perubahan ukuran jendela proyektor
+            projectorWindow.addEventListener('resize', syncPreviewAspect);
+            if (extScreen && extScreen.width > 0 && extScreen.height > 0) setPreviewAspect(extScreen.width, extScreen.height);
+            else syncPreviewAspect();
 
             // Jika belum ada info layar eksternal, minta (async) lalu pindahkan jendela ke layar tsb
             if (!extScreen) {
@@ -584,6 +936,7 @@
                             projectorWindow.moveTo(ext.availLeft, ext.availTop);
                             projectorWindow.resizeTo(ext.availWidth, ext.availHeight);
                             requestProjectorFullscreen(ext);
+                            if (ext.width > 0 && ext.height > 0) setPreviewAspect(ext.width, ext.height);
                         } catch (e) {}
                     }
                 });
@@ -594,7 +947,10 @@
                 if (projectorWindow && projectorWindow.closed) {
                     projectorWindow = null;
                     updateProjectorButton();
+                    syncPreviewAspect();   // proyektor ditutup dari jendelanya sendiri: preview kembali normal
                     clearInterval(projectorCheckInterval);
+                } else {
+                    syncPreviewAspect();
                 }
             }, 500);
         }
@@ -614,6 +970,7 @@
         window.changeRatio = function(ratio) {
             currentRatio = ratio;
             syncScreens();
+            saveSettings();
         };
 
         function applyRatioStyles(imgElement) {
@@ -636,98 +993,423 @@
             }
         }
 
-        function syncScreens() {
-            const previewImg = document.getElementById('preview-img');
+        // --- Mesin transisi latar belakang ---
+        // Setiap "stage" (preview & jendela proyektor) menyimpan lapisan gambar yang sedang tampil.
+        // Jenis transisi (masuk / keluar / ganti) ditentukan dari perubahan keadaan, sehingga
+        // perubahan rasio tidak memicu animasi.
+        const ENTER_KF = {
+            black: [{ opacity: 0 }, { opacity: 1 }],
+            zoom:  [{ opacity: 0, transform: 'scale(1.25)' }, { opacity: 1, transform: 'scale(1)' }],
+            slide: [{ transform: 'translateX(100%)' }, { transform: 'translateX(0)' }],
+            up:    [{ transform: 'translateY(100%)' }, { transform: 'translateY(0)' }],
+            blur:  [{ opacity: 0, filter: 'blur(28px)' }, { opacity: 1, filter: 'blur(0px)' }]
+        };
+        const EXIT_KF = {
+            black: [{ opacity: 1 }, { opacity: 0 }],
+            zoom:  [{ opacity: 1, transform: 'scale(1)' }, { opacity: 0, transform: 'scale(0.8)' }],
+            slide: [{ transform: 'translateX(0)' }, { transform: 'translateX(-100%)' }],
+            down:  [{ transform: 'translateY(0)' }, { transform: 'translateY(100%)' }],
+            blur:  [{ opacity: 1, filter: 'blur(0px)' }, { opacity: 0, filter: 'blur(28px)' }]
+        };
+        const SWAP_PLANS = {
+            // lewat hitam: lapisan lama memudar dulu, baru lapisan baru muncul
+            black: d => ({ out: { kf: [{ opacity: 1 }, { opacity: 0 }], opt: { duration: d / 2 } },
+                           in:  { kf: [{ opacity: 0 }, { opacity: 1 }], opt: { duration: d / 2, delay: d / 2 } } }),
+            cross: d => ({ out: { kf: [{ opacity: 1 }, { opacity: 0 }], opt: { duration: d } },
+                           in:  { kf: [{ opacity: 0 }, { opacity: 1 }], opt: { duration: d } } }),
+            slide: d => ({ out: { kf: [{ transform: 'translateX(0)' }, { transform: 'translateX(-100%)' }], opt: { duration: d } },
+                           in:  { kf: [{ transform: 'translateX(100%)' }, { transform: 'translateX(0)' }], opt: { duration: d } } }),
+            zoom:  d => ({ out: { kf: [{ opacity: 1, transform: 'scale(1)' }, { opacity: 0, transform: 'scale(1.25)' }], opt: { duration: d } },
+                           in:  { kf: [{ opacity: 0, transform: 'scale(0.8)' }, { opacity: 1, transform: 'scale(1)' }], opt: { duration: d } } }),
+            blur:  d => ({ out: { kf: [{ opacity: 1, filter: 'blur(0px)' }, { opacity: 0, filter: 'blur(28px)' }], opt: { duration: d } },
+                           in:  { kf: [{ opacity: 0, filter: 'blur(28px)' }, { opacity: 1, filter: 'blur(0px)' }], opt: { duration: d } } })
+        };
+
+        const stageStates = new WeakMap();
+        function stageGet(container) {
+            let st = stageStates.get(container);
+            if (!st) { st = { src: null, layers: [], token: 0 }; stageStates.set(container, st); }
+            return st;
+        }
+
+        function createLayer(container, src) {
+            const doc = container.ownerDocument;
+            const layer = doc.createElement('div');
+            layer.style.cssText = 'position:absolute;top:0;left:0;right:0;bottom:0;z-index:1;display:flex;align-items:center;justify-content:center;';
+            const img = doc.createElement('img');
+            img.alt = ''; img.draggable = false; img.src = src;
+            applyRatioStyles(img);
+            layer.appendChild(img);
+            container.appendChild(layer);
+            return layer;
+        }
+
+        function removeLayer(st, layer) {
+            try { layer.remove(); } catch (e) {}
+            st.layers = st.layers.filter(l => l !== layer);
+        }
+
+        function runAnim(layer, keyframes, options, onDone) {
+            try {
+                const a = layer.animate(keyframes, Object.assign({ easing: 'ease-in-out', fill: 'both' }, options));
+                a.onfinish = () => {
+                    if (onDone) onDone();
+                    else { try { a.cancel(); } catch (e) {} }
+                };
+                return a;
+            } catch (e) { if (onDone) onDone(); return null; }
+        }
+
+        // Hentikan transisi yang masih berjalan sebelum transisi baru dimulai
+        function stageSettle(st) {
+            st.layers.slice().forEach(l => {
+                if (l._leaving) { removeLayer(st, l); return; }
+                try { l.getAnimations().forEach(a => a.cancel()); l.style.opacity = ''; } catch (e) {}
+            });
+        }
+
+        // Tunggu gambar selesai di-decode agar animasi tidak berjalan di atas gambar kosong
+        function whenReady(layer, token, st, fn) {
+            const img = layer.firstChild;
+            layer.style.opacity = '0';
+            let done = false;
+            const go = () => {
+                if (done) return; done = true;
+                if (st.token !== token || !layer.isConnected) return;
+                layer.style.opacity = '';
+                fn();
+            };
+            if (img && img.decode) img.decode().then(go, go); else go();
+            setTimeout(go, 500);
+        }
+
+        function stageUpdate(container, src, instant) {
+            const st = stageGet(container);
+            if (st.src === src) {   // tidak ada pergantian gambar: cukup terapkan ulang rasio
+                container.querySelectorAll('img').forEach(img => applyRatioStyles(img));
+                return;
+            }
+            stageSettle(st);
+            st.src = src;
+            const token = ++st.token;
+            const d = animDurationMs();
+            const animate = !instant && d > 0;
+            const cur = st.layers[st.layers.length - 1] || null;
+
+            if (!src) {                                         // KELUAR (dimatikan)
+                if (!cur) return;
+                const kf = animate && EXIT_KF[animSettings.out];
+                if (!kf) { removeLayer(st, cur); return; }
+                cur._leaving = true;
+                runAnim(cur, kf, { duration: d }, () => removeLayer(st, cur));
+                return;
+            }
+
+            const next = createLayer(container, src);           // MASUK atau GANTI
+            st.layers.push(next);
+
+            if (!cur) {                                         // MASUK (tampil)
+                const kf = animate && ENTER_KF[animSettings.in];
+                if (kf) whenReady(next, token, st, () => runAnim(next, kf, { duration: d }));
+                return;
+            }
+
+            cur._leaving = true;                                // GANTI
+            const plan = animate && SWAP_PLANS[animSettings.swap];
+            if (!plan) { removeLayer(st, cur); return; }
+            const pl = plan(d);
+            whenReady(next, token, st, () => {
+                runAnim(cur, pl.out.kf, pl.out.opt, () => removeLayer(st, cur));
+                runAnim(next, pl.in.kf, pl.in.opt);
+            });
+        }
+
+        let previewEmptyTimer = null;
+
+        function syncScreens(instant) {
+            const previewStage = document.getElementById('preview-stage');
             const previewEmpty = document.getElementById('preview-empty');
             const activeBg = backgrounds.find(b => b.id === activeBgId);
-            
-            const srcUrl = activeBg ? activeBg.url : '';
-            const showImg = (activeBg && !isBlackout) ? 'block' : 'none';
+            const src = (activeBg && !isBlackout) ? activeBg.url : null;
 
-            previewImg.src = srcUrl; previewImg.style.display = showImg; applyRatioStyles(previewImg);
-            
+            const wasShowing = !!stageGet(previewStage).src;
+            stageUpdate(previewStage, src, instant);
+
+            // Pesan "kosong" di preview baru muncul setelah animasi keluar selesai
+            clearTimeout(previewEmptyTimer);
             if (activeBg && isBlackout) {
                 previewEmpty.innerHTML = `<div style="width:48px;height:48px;margin-bottom:8px;">${icons.eyeOff}</div><p>Mode Blackout Aktif</p>`;
-                previewEmpty.style.display = 'flex';
             } else if (!activeBg) {
                 previewEmpty.innerHTML = `<svg style="width:48px;height:48px;margin-bottom:8px;" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><circle cx="8.5" cy="8.5" r="1.5"></circle><polyline points="21 15 16 10 5 21"></polyline></svg><p>Tidak Ada Latar Aktif</p>`;
-                previewEmpty.style.display = 'flex';
-            } else {
+            }
+            if (src) {
                 previewEmpty.style.display = 'none';
+            } else {
+                const delay = (!instant && wasShowing && animSettings.out !== 'none') ? animDurationMs() : 0;
+                if (delay > 0) {
+                    previewEmpty.style.display = 'none';
+                    previewEmptyTimer = setTimeout(() => { previewEmpty.style.display = 'flex'; }, delay);
+                } else {
+                    previewEmpty.style.display = 'flex';
+                }
             }
 
             if (projectorWindow && !projectorWindow.closed) {
-                const projImg = projectorWindow.document.getElementById('projector-img');
-                if (projImg) { projImg.src = srcUrl; projImg.style.display = showImg; applyRatioStyles(projImg); }
+                try {
+                    const stage = projectorWindow.document.getElementById('stage');
+                    if (stage) stageUpdate(stage, src, instant);
+                } catch (e) {}
             }
         }
 
         // --- Upload Handler ---
+        // Muat metadata audio; null jika file rusak / format tidak didukung / terlalu lama tak merespons
+        function loadAudioMeta(file) {
+            return new Promise(resolve => {
+                const url = URL.createObjectURL(file);
+                const a = new Audio();
+                let done = false;
+                const finish = (ok) => {
+                    if (done) return; done = true;
+                    clearTimeout(timer);
+                    a.onloadedmetadata = null; a.onerror = null;
+                    if (!ok) URL.revokeObjectURL(url);
+                    resolve(ok ? { url, duration: a.duration } : null);
+                };
+                const timer = setTimeout(() => finish(false), 15000);
+                a.onloadedmetadata = () => finish(true);
+                a.onerror = () => finish(false);
+                a.preload = 'metadata';
+                a.src = url;
+            });
+        }
+
+        // Pastikan gambar bisa di-decode; mengembalikan URL blob, atau null jika gagal
+        function loadImageUrl(file) {
+            return new Promise(resolve => {
+                const url = URL.createObjectURL(file);
+                const img = new Image();
+                img.onload = () => resolve(url);
+                img.onerror = () => { URL.revokeObjectURL(url); resolve(null); };
+                img.src = url;
+            });
+        }
+
         async function handleUpload(event, type) {
-            const files = event.target.files;
+            const files = Array.from(event.target.files);
+            event.target.value = '';
             if (!files.length) return;
 
-            for (let file of files) {
+            const failed = [];
+            for (const file of files) {
                 const id = generateId();
                 const safeName = file.name.replace(/["']/g, ""); 
-                
-                if (type === 'audio') {
-                    const tempUrl = URL.createObjectURL(file);
-                    const tempAudio = new Audio(tempUrl);
-                    tempAudio.onloadedmetadata = async () => {
-                        const item = { id, name: safeName, type: 'audio', file: file, duration: tempAudio.duration, loop: false };
+                try {
+                    if (type === 'audio') {
+                        const meta = await loadAudioMeta(file);
+                        if (!meta) { failed.push(file.name); continue; }
+                        const item = { id, name: safeName, type: 'audio', file: file, duration: meta.duration, loop: false };
                         await saveMediaDB(item);
-                        item.url = tempUrl;
+                        item.url = meta.url;
                         backsounds.push(item);
                         renderAudios();
-                    };
-                } else {
-                    const item = { id, name: safeName, type: 'bg', file: file };
-                    await saveMediaDB(item);
-                    item.url = URL.createObjectURL(file);
-                    backgrounds.push(item);
-                    renderBackgrounds();
+                    } else {
+                        const url = await loadImageUrl(file);
+                        if (!url) { failed.push(file.name); continue; }
+                        const item = { id, name: safeName, type: 'bg', file: file };
+                        await saveMediaDB(item);
+                        item.url = url;
+                        backgrounds.push(item);
+                        renderBackgrounds();
+                    }
+                } catch (err) {
+                    failed.push(file.name);
                 }
             }
-            event.target.value = ''; 
+
+            if (failed.length) {
+                const shown = failed.slice(0, 10).map(n => '• ' + n).join('\n');
+                const more = failed.length > 10 ? `\n… dan ${failed.length - 10} file lainnya` : '';
+                alert(`${failed.length} file tidak dapat dimuat (rusak atau format tidak didukung):\n${shown}${more}`);
+            }
+        }
+
+        // --- Overlay konfirmasi ---
+        // Selama tampil: seluruh latar (.app) di-set inert (tidak bisa klik/fokus) dan scroll halaman dikunci.
+        // Klik di area gelap tidak menutup overlay; gunakan tombol Batal / Hapus, atau tekan Esc untuk batal.
+        function showConfirm({ title, name, text, note, okText }) {
+            return new Promise(resolve => {
+                const overlay = document.getElementById('confirm-overlay');
+                const app = document.querySelector('.app');
+                const msgEl = document.getElementById('confirm-msg');
+                const noteEl = document.getElementById('confirm-note');
+                const okBtn = document.getElementById('confirm-ok');
+                const cancelBtn = document.getElementById('confirm-cancel');
+                const prevFocus = document.activeElement;
+
+                document.getElementById('confirm-title').textContent = title;
+                msgEl.textContent = '';
+                const strong = document.createElement('strong');
+                strong.textContent = name;
+                msgEl.append(strong, ' ' + text);
+                noteEl.textContent = note || '';
+                noteEl.hidden = !note;
+                okBtn.textContent = okText || 'Hapus';
+
+                const onKey = (e) => {
+                    if (e.key === 'Escape') {
+                        e.preventDefault(); e.stopPropagation();
+                        close(false);
+                    } else if (e.key === 'Tab') {
+                        e.preventDefault();
+                        const items = [cancelBtn, okBtn];
+                        const i = items.indexOf(document.activeElement);
+                        const next = e.shiftKey ? (i <= 0 ? items.length - 1 : i - 1) : (i === items.length - 1 ? 0 : i + 1);
+                        items[next].focus();
+                    }
+                };
+
+                function close(result) {
+                    document.removeEventListener('keydown', onKey, true);
+                    okBtn.onclick = null; cancelBtn.onclick = null;
+                    overlay.hidden = true;
+                    app.inert = false;
+                    document.documentElement.classList.remove('modal-open');
+                    if (prevFocus && prevFocus.isConnected && prevFocus.focus) prevFocus.focus();
+                    resolve(result);
+                }
+
+                okBtn.onclick = () => close(true);
+                cancelBtn.onclick = () => close(false);
+                document.addEventListener('keydown', onKey, true);
+
+                overlay.hidden = false;
+                app.inert = true;
+                document.documentElement.classList.add('modal-open');
+                cancelBtn.focus();   // fokus awal di Batal agar Enter tidak menghapus tanpa sengaja
+            });
         }
 
         // --- Background Logic ---
         window.toggleBackground = function(id) {
             if (activeBgId === id) isBlackout = !isBlackout;
             else { activeBgId = id; isBlackout = false; }
+            if (!isBlackout) clearOffAll();   // latar dinyalakan manual -> tombol kembali jadi "Matikan Semua"
             syncScreens(); renderBackgrounds();
+            saveSettings();
         };
 
         window.deleteBackground = async function(id) {
+            const target = backgrounds.find(b => b.id === id);
+            if (!target) return;
+            const ok = await showConfirm({
+                title: 'Hapus latar belakang?',
+                name: target.name,
+                text: 'akan dihapus permanen. Tindakan ini tidak dapat dibatalkan.',
+                note: activeBgId === id ? 'Latar ini sedang tampil di layar dan akan ikut dihilangkan.' : ''
+            });
+            if (!ok) return;
+            forgetInOffAll('bg', id);
             const index = backgrounds.findIndex(b => b.id === id);
             if (index > -1) {
                 URL.revokeObjectURL(backgrounds[index].url);
                 await deleteMediaDB(id);
                 backgrounds.splice(index, 1);
-                if (activeBgId === id) { activeBgId = null; isBlackout = false; syncScreens(); }
+                if (activeBgId === id) { activeBgId = null; isBlackout = false; syncScreens(); saveSettings(); }
                 renderBackgrounds();
             }
         };
 
+        // Urutkan A-Z (abaikan huruf besar/kecil, angka diurutkan secara numerik: 2 sebelum 10)
+        const sortByName = (a, b) => a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: 'base' });
+
+        // Nama file: teks biasa (klik dua kali untuk rename), atau kolom input jika sedang di-rename
+        function nameHtml(kind, item, extraClass, extraStyle) {
+            if (renameState && renameState.kind === kind && renameState.id === item.id) {
+                return `<input type="text" class="rename-input" value="${esc(renameState.value)}" spellcheck="false" autocomplete="off" oninput="renameInput(this)" onkeydown="renameKey(event)" onblur="renameBlur()">`;
+            }
+            return `<span class="item-name ${extraClass || ''}" style="${extraStyle || ''}" title="${esc(item.name)}" ondblclick="startRename('${kind}', '${item.id}')">${esc(item.name)}</span>`;
+        }
+
+        function focusRenameInput() {
+            if (!renameState) return;
+            const input = document.querySelector('.rename-input');
+            if (!input) { renameState = null; return; }   // item-nya sudah tidak ada (mis. dihapus)
+            input.focus();
+            const v = input.value;
+            if (renameState.selectAll) {
+                const dot = v.lastIndexOf('.');
+                input.setSelectionRange(0, dot > 0 ? dot : v.length);   // pilih nama tanpa ekstensi
+                renameState.selectAll = false;
+            } else {
+                input.setSelectionRange(v.length, v.length);
+            }
+        }
+
+        window.startRename = function(kind, id) {
+            if (renameState) finishRename(true);
+            const item = (kind === 'bg' ? backgrounds : backsounds).find(x => x.id === id);
+            if (!item) return;
+            renameState = { kind, id, value: item.name, selectAll: true };
+            if (kind === 'bg') renderBackgrounds(); else renderAudios();
+        };
+
+        window.renameInput = function(el) { if (renameState) renameState.value = el.value; };
+
+        window.renameKey = function(e) {
+            if (e.key === 'Enter') { e.preventDefault(); finishRename(true); }
+            else if (e.key === 'Escape') { e.preventDefault(); finishRename(false); }
+        };
+
+        // Klik di luar kolom input (input kehilangan fokus) = simpan
+        window.renameBlur = function() {
+            if (renameBlurSuspended || !renameState) return;
+            finishRename(true);
+        };
+
+        function finishRename(commit) {
+            const st = renameState;
+            if (!st) return;
+            renameState = null;
+            const item = (st.kind === 'bg' ? backgrounds : backsounds).find(x => x.id === st.id);
+            let toSave = null;
+            if (item && commit) {
+                const newName = String(st.value).replace(/["']/g, '').trim();
+                if (newName && newName !== item.name) {
+                    item.name = newName;
+                    toSave = st.kind === 'bg'
+                        ? { id: item.id, name: item.name, type: 'bg', file: item.file }
+                        : { id: item.id, name: item.name, type: 'audio', file: item.file, duration: item.duration, loop: item.loop };
+                }
+            }
+            // Gambar ulang langsung (otomatis terurut A-Z), lalu simpan ke database
+            if (st.kind === 'bg') renderBackgrounds(); else renderAudios();
+            if (toSave) saveMediaDB(toSave).catch(() => {});
+        }
+
         function renderBackgrounds() {
+            renameBlurSuspended = true;
+            backgrounds.sort(sortByName);
             const list = document.getElementById('bg-list');
             list.innerHTML = backgrounds.length === 0 ? '<div class="empty-state" style="padding:20px; font-size:0.9rem;">Belum ada latar belakang</div>' : '';
             backgrounds.forEach(bg => {
                 const isActive = bg.id === activeBgId;
                 const activeClass = isActive && !isBlackout ? 'active' : '';
+                const currentClass = isActive ? 'is-current' : '';  // hijau saat tampil maupun setelah dimatikan
                 list.innerHTML += `
                     <div class="list-item ${activeClass}">
                         <div class="item-info">
                             <img src="${bg.url}" class="item-thumb" />
-                            <span class="item-name" title="${bg.name}">${bg.name}</span>
+                            ${nameHtml('bg', bg, currentClass, '')}
                         </div>
                         <div class="item-actions">
-                            <button class="btn-icon ${activeClass}" onclick="toggleBackground('${bg.id}')" title="${isActive && isBlackout ? 'Tampilkan' : 'Sembunyikan'}">${(isActive && isBlackout) ? icons.eyeOff : icons.eye}</button>
+                            <button class="btn-icon ${activeClass}" onclick="toggleBackground('${bg.id}')" title="${isActive && isBlackout ? 'Tampilkan' : 'Sembunyikan'}">${icons.eye}</button>
                             <button class="btn-icon danger" onclick="deleteBackground('${bg.id}')" title="Hapus">${icons.trash}</button>
                         </div>
                     </div>`;
             });
+            renameBlurSuspended = false;
+            focusRenameInput();
         }
 
         // --- Audio Logic & Fader ---
@@ -755,6 +1437,12 @@
             }, stepTime);
         }
 
+        function setSeekFill(el) {
+            const max = parseFloat(el.max) || 0;
+            const p = max > 0 ? Math.min(1, Math.max(0, parseFloat(el.value) / max)) : 0;
+            el.style.setProperty('--p', p);
+        }
+
         window.updateSeeker = function(id) {
             if (playingAudioId !== id || !activeAudioElement) return;
             const itemEl = document.getElementById(`audio-item-${id}`);
@@ -764,7 +1452,7 @@
             const curText = itemEl.querySelector('.current-time');
             const remainText = itemEl.querySelector('.remain-time');
             
-            if (seeker && !seeker.isDragging) seeker.value = activeAudioElement.currentTime;
+            if (seeker && !seeker.isDragging) { seeker.value = activeAudioElement.currentTime; setSeekFill(seeker); }
             if (curText) curText.innerText = formatTime(activeAudioElement.currentTime);
             if (remainText) remainText.innerText = `(-${formatTime(activeAudioElement.duration - activeAudioElement.currentTime)})`;
         };
@@ -787,6 +1475,279 @@
             }
         };
 
+        // Jeda audio yang sedang berbunyi dengan fade keluar (durasi dari slider Efek Fade).
+        // Mengembalikan true jika ada audio yang mulai dijeda.
+        function fadePauseActiveAudio() {
+            const cur = activeAudioElement;
+            if (!cur || cur.paused || cur.isFadingOut) return false;
+            const fadeMs = parseFloat(document.getElementById('fade-slider').value) * 1000;
+            cur.isFadingOut = true;
+            smoothFade(cur, 0, fadeMs, () => {
+                cur.pause();
+                cur.isFadingOut = false;
+                renderAudios();
+            });
+            return true;
+        }
+
+        // --- Visualizer dua channel (L / R) ---
+        // Setiap audio disalurkan lewat Web Audio: sumber -> speaker (seperti biasa) dan dicabangkan ke
+        // dua AnalyserNode (kiri & kanan). Fade volume tetap lewat audio.volume, jadi ikut terlihat di bar.
+        const VIZ_BARS = 32;
+        let audioCtx = null;
+        let vizBus = null;
+        let vizAnalysers = [];
+        let vizData = [];
+        let vizBinMap = null;
+        let vizRunning = false;
+        const vizLevels = [new Float32Array(VIZ_BARS), new Float32Array(VIZ_BARS)];
+        const vizPeaks = [new Float32Array(VIZ_BARS), new Float32Array(VIZ_BARS)];
+
+        function ensureAudioGraph() {
+            if (audioCtx) return true;
+            const Ctx = window.AudioContext || window.webkitAudioContext;
+            if (!Ctx) return false;
+            try { audioCtx = new Ctx({ latencyHint: 'playback' }); }
+            catch (e) {
+                try { audioCtx = new Ctx(); } catch (e2) { audioCtx = null; return false; }
+            }
+            // Bus stereo: sumber mono otomatis digandakan ke L & R agar kedua channel ikut bergerak
+            vizBus = audioCtx.createGain();
+            vizBus.channelCount = 2;
+            vizBus.channelCountMode = 'explicit';
+            vizBus.channelInterpretation = 'speakers';
+            const splitter = audioCtx.createChannelSplitter(2);
+            vizBus.connect(splitter);
+            vizAnalysers = [0, 1].map(ch => {
+                const an = audioCtx.createAnalyser();
+                an.fftSize = 2048;
+                an.smoothingTimeConstant = 0.7;
+                an.minDecibels = -85;
+                an.maxDecibels = -10;
+                splitter.connect(an, ch);
+                return an;
+            });
+            vizData = vizAnalysers.map(an => new Uint8Array(an.frequencyBinCount));
+            vizBinMap = null;
+            return true;
+        }
+
+        function resumeAudioCtx() {
+            if (audioCtx && audioCtx.state !== 'running') audioCtx.resume().catch(() => {});
+        }
+
+        function attachVisualizer(audio) {
+            try {
+                if (!ensureAudioGraph()) return;
+                const node = audioCtx.createMediaElementSource(audio);
+                node.connect(audioCtx.destination);   // suara tetap keluar seperti biasa
+                node.connect(vizBus);                 // dan dicabangkan ke analyser kiri / kanan
+                audio._vizNode = node;
+                resumeAudioCtx();
+            } catch (e) { console.warn('Visualizer tidak aktif:', e); }
+        }
+
+        function detachVisualizer(audio) {
+            try {
+                if (audio && audio._vizNode) { audio._vizNode.disconnect(); audio._vizNode = null; }
+            } catch (e) {}
+        }
+
+        // Peta bar -> rentang bin FFT, skala logaritmik 40 Hz - 16 kHz
+        function buildVizBinMap() {
+            const an = vizAnalysers[0];
+            const hz = audioCtx.sampleRate / an.fftSize;
+            const fMin = 40, fMax = Math.min(16000, audioCtx.sampleRate / 2);
+            const map = [];
+            for (let i = 0; i < VIZ_BARS; i++) {
+                const lo = fMin * Math.pow(fMax / fMin, i / VIZ_BARS);
+                const hi = fMin * Math.pow(fMax / fMin, (i + 1) / VIZ_BARS);
+                let a = Math.max(0, Math.min(an.frequencyBinCount - 1, Math.floor(lo / hz)));
+                let b = Math.max(a + 1, Math.min(an.frequencyBinCount, Math.ceil(hi / hz)));
+                map.push([a, b]);
+            }
+            return map;
+        }
+
+        // Perbarui level bar; mengembalikan total energi (untuk menghentikan animasi saat sepi)
+        function updateVizLevels() {
+            let energy = 0;
+            const live = audioCtx && vizAnalysers.length === 2;
+            if (live && !vizBinMap) vizBinMap = buildVizBinMap();
+            for (let ch = 0; ch < 2; ch++) {
+                if (live) vizAnalysers[ch].getByteFrequencyData(vizData[ch]);
+                for (let i = 0; i < VIZ_BARS; i++) {
+                    let target = 0;
+                    if (live) {
+                        const [a, b] = vizBinMap[i];
+                        let m = 0;
+                        for (let k = a; k < b; k++) if (vizData[ch][k] > m) m = vizData[ch][k];
+                        target = Math.min(1, (m / 255) * (0.9 + 0.5 * i / VIZ_BARS));   // sedikit dongkrak frekuensi tinggi
+                    }
+                    const lvl = vizLevels[ch][i];
+                    vizLevels[ch][i] = target > lvl ? target : Math.max(target, lvl - 0.04);   // naik cepat, turun halus
+                    vizPeaks[ch][i] = Math.max(vizLevels[ch][i], vizPeaks[ch][i] - 0.012);    // penanda puncak
+                    energy += vizLevels[ch][i] + vizPeaks[ch][i];
+                }
+            }
+            return energy;
+        }
+
+        function drawViz() {
+            const canvas = document.getElementById('viz-canvas');
+            if (!canvas) return;
+            const dpr = window.devicePixelRatio || 1;
+            const w = canvas.clientWidth, h = canvas.clientHeight;
+            if (!w || !h) return;
+            const pw = Math.round(w * dpr), ph = Math.round(h * dpr);
+            if (canvas.width !== pw || canvas.height !== ph) { canvas.width = pw; canvas.height = ph; }
+            const ctx = canvas.getContext('2d');
+            ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+            ctx.clearRect(0, 0, w, h);
+
+            const labelW = 14, rowGap = 6;
+            const rowH = (h - rowGap) / 2;
+            const gx = labelW + 6, gw = w - gx;
+            const bw = gw / VIZ_BARS, pad = Math.min(2, bw * 0.3);
+
+            ['L', 'R'].forEach((name, ch) => {
+                const y0 = ch * (rowH + rowGap);
+                ctx.fillStyle = '#94a3b8';
+                ctx.font = '600 11px "Segoe UI", system-ui, sans-serif';
+                ctx.textBaseline = 'middle';
+                ctx.fillText(name, 0, y0 + rowH / 2);
+
+                const grad = ctx.createLinearGradient(0, y0 + rowH, 0, y0);
+                grad.addColorStop(0, '#10b981');
+                grad.addColorStop(0.7, '#10b981');
+                grad.addColorStop(0.88, '#fbbf24');
+                grad.addColorStop(1, '#ef4444');
+
+                for (let i = 0; i < VIZ_BARS; i++) {
+                    const x = gx + i * bw;
+                    const lvl = vizLevels[ch][i];
+                    const bh = Math.max(2, lvl * rowH);
+                    ctx.fillStyle = 'rgba(255,255,255,0.05)';
+                    ctx.fillRect(x, y0, bw - pad, rowH);
+                    ctx.globalAlpha = lvl < 0.01 ? 0.35 : 1;
+                    ctx.fillStyle = grad;
+                    ctx.fillRect(x, y0 + rowH - bh, bw - pad, bh);
+                    ctx.globalAlpha = 1;
+                    const pk = vizPeaks[ch][i];
+                    if (pk > 0.03) {
+                        ctx.fillStyle = 'rgba(248,250,252,0.85)';
+                        ctx.fillRect(x, Math.max(y0, y0 + rowH - pk * rowH - 1.5), bw - pad, 1.5);
+                    }
+                }
+            });
+        }
+
+        function vizTick() {
+            const energy = updateVizLevels();
+            drawViz();
+            const playing = !!activeAudioElement && !activeAudioElement.paused;
+            if (energy > 0.01 || playing) requestAnimationFrame(vizTick);
+            else vizRunning = false;   // sepi: berhenti menggambar sampai ada audio diputar lagi
+        }
+
+        function startViz() {
+            if (vizRunning) return;
+            vizRunning = true;
+            requestAnimationFrame(vizTick);
+        }
+
+        window.addEventListener('resize', () => { if (!vizRunning) drawViz(); });
+        drawViz();   // gambar keadaan awal (bar diam)
+
+        // Lanjutkan audio aktif yang sedang dijeda (atau sedang fade-out) dengan fade masuk.
+        // Mengembalikan true jika ada audio yang dilanjutkan.
+        function fadeResumeActiveAudio() {
+            const cur = activeAudioElement;
+            if (!cur || !(cur.paused || cur.isFadingOut)) return false;
+            const fadeMs = parseFloat(document.getElementById('fade-slider').value) * 1000;
+            cur.isFadingOut = false;
+            cur.isFadingOutEnd = false; // izinkan fade-out akhir dihitung ulang setelah dilanjutkan
+            if (cur.paused) cur.play().catch(e => console.error(e));
+            smoothFade(cur, 1, fadeMs);
+            resumeAudioCtx();
+            startViz();
+            return true;
+        }
+
+        // --- Tombol Matikan Semua / Nyalakan Kembali ---
+        function updateOffAllButton() {
+            const btn = document.getElementById('off-all-btn');
+            if (!btn) return;
+            if (offAllSnapshot) {
+                btn.className = 'btn btn-success';
+                btn.title = 'Tampilkan lagi latar terakhir dan lanjutkan suara latar terakhir';
+                btn.innerHTML = `<svg viewBox="0 0 24 24"><polyline points="1 4 1 10 7 10"></polyline><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"></path></svg> Nyalakan Kembali`;
+            } else {
+                btn.className = 'btn btn-danger';
+                btn.title = 'Blackout seluruh layar dan jeda suara latar (dengan fade keluar)';
+                btn.innerHTML = `<svg viewBox="0 0 24 24"><path d="M18.36 6.64a9 9 0 1 1-12.73 0"></path><line x1="12" y1="2" x2="12" y2="12"></line></svg> Matikan Semua`;
+            }
+        }
+
+        // Kembali ke mode "Matikan Semua" (dipanggil saat latar/suara dinyalakan manual)
+        function clearOffAll() {
+            if (!offAllSnapshot) return;
+            offAllSnapshot = null;
+            updateOffAllButton();
+        }
+
+        // Jika file yang tersimpan di snapshot dihapus, lupakan; bila tak ada yang tersisa, kembali ke "Matikan Semua"
+        function forgetInOffAll(kind, id) {
+            if (!offAllSnapshot) return;
+            if (kind === 'bg' && offAllSnapshot.bgId === id) offAllSnapshot.bgId = null;
+            if (kind === 'audio' && offAllSnapshot.audioId === id) offAllSnapshot.audioId = null;
+            if (!offAllSnapshot.bgId && !offAllSnapshot.audioId) clearOffAll();
+        }
+
+        // Mode "Nyalakan Kembali": tampilkan lagi latar terakhir dan lanjutkan suara latar terakhir secara bersamaan
+        function restoreAll() {
+            const snap = offAllSnapshot;
+            offAllSnapshot = null;
+            updateOffAllButton();
+            if (!snap) return;
+
+            if (snap.bgId && activeBgId === snap.bgId && isBlackout && backgrounds.some(b => b.id === snap.bgId)) {
+                isBlackout = false;
+                syncScreens();          // memakai animasi "Saat tampil"
+                renderBackgrounds();
+                saveSettings();
+            }
+            if (snap.audioId && playingAudioId === snap.audioId && backsounds.some(a => a.id === snap.audioId)) {
+                if (fadeResumeActiveAudio()) renderAudios();   // dilanjutkan dari posisi terakhir dengan fade masuk
+            }
+        }
+
+        // Matikan Semua: blackout seluruh layar (preview + proyektor) memakai animasi "Saat dimatikan",
+        // dan jeda suara latar dengan fade keluar. Latar & lagu terakhir tetap bertanda hijau.
+        // Setelah itu tombol berubah jadi "Nyalakan Kembali"; menekannya mengembalikan keadaan tadi.
+        window.turnOffAll = function() {
+            if (offAllSnapshot) { restoreAll(); return; }
+
+            const snap = { bgId: null, audioId: null };
+            if (activeBgId && !isBlackout) {
+                snap.bgId = activeBgId;
+                isBlackout = true;
+                syncScreens();
+                renderBackgrounds();
+                saveSettings();
+            }
+            const audioId = playingAudioId;
+            if (fadePauseActiveAudio()) {
+                snap.audioId = audioId;
+                renderAudios();
+            }
+            // Hanya masuk mode "Nyalakan Kembali" jika memang ada yang dimatikan
+            if (snap.bgId || snap.audioId) {
+                offAllSnapshot = snap;
+                updateOffAllButton();
+            }
+        };
+
         window.toggleAudio = function(id, url) {
             const fadeSecs = parseFloat(document.getElementById('fade-slider').value);
             const fadeMs = fadeSecs * 1000;
@@ -794,16 +1755,10 @@
             if (playingAudioId === id) {
                 // Toggle untuk audio yang sama dengan Fade
                 if (activeAudioElement.paused || activeAudioElement.isFadingOut) {
-                    activeAudioElement.isFadingOut = false;
-                    if(activeAudioElement.paused) activeAudioElement.play().catch(e => console.error(e));
-                    smoothFade(activeAudioElement, 1, fadeMs);
+                    fadeResumeActiveAudio();
+                    clearOffAll();   // suara dinyalakan manual -> tombol kembali jadi "Matikan Semua"
                 } else {
-                    activeAudioElement.isFadingOut = true;
-                    smoothFade(activeAudioElement, 0, fadeMs, () => {
-                        activeAudioElement.pause();
-                        activeAudioElement.isFadingOut = false;
-                        renderAudios(); 
-                    });
+                    fadePauseActiveAudio();
                 }
             } else {
                 // Crossfade jika berpindah audio
@@ -812,48 +1767,73 @@
                     oldAudio.isFadingOut = true;
                     smoothFade(oldAudio, 0, fadeMs, () => {
                         oldAudio.pause();
+                        detachVisualizer(oldAudio);
                         oldAudio.src = '';
                     });
+                } else if (activeAudioElement) {
+                    detachVisualizer(activeAudioElement);   // audio lama yang sudah berhenti / dijeda
                 }
                 
-                activeAudioElement = new Audio(url);
+                const audio = new Audio(url);
+                activeAudioElement = audio;
+                attachVisualizer(audio);
                 const trackData = backsounds.find(b => b.id === id);
-                activeAudioElement.loop = trackData ? trackData.loop : false;
+                audio.loop = trackData ? trackData.loop : false;
                 
-                activeAudioElement.ontimeupdate = () => {
+                // Semua handler memakai elemen "audio" miliknya sendiri (bukan activeAudioElement global)
+                // dan diabaikan jika elemen ini sudah bukan yang aktif (mis. sedang crossfade keluar).
+                audio.ontimeupdate = () => {
+                    if (activeAudioElement !== audio) return;
                     updateSeeker(id);
                     // Antisipasi fade-out di akhir durasi
-                    const remain = activeAudioElement.duration - activeAudioElement.currentTime;
-                    if (!activeAudioElement.loop && remain <= fadeSecs && remain > 0.1 && !activeAudioElement.isFadingOutEnd) {
-                        activeAudioElement.isFadingOutEnd = true;
-                        smoothFade(activeAudioElement, 0, fadeSecs * 1000, null);
+                    const remain = audio.duration - audio.currentTime;
+                    if (!audio.loop && remain <= fadeSecs && remain > 0.1 && !audio.isFadingOutEnd) {
+                        audio.isFadingOutEnd = true;
+                        smoothFade(audio, 0, fadeSecs * 1000, null);
                     }
                 };
                 
-                activeAudioElement.onended = () => {
-                    if (!activeAudioElement.loop) {
+                audio.onended = () => {
+                    if (activeAudioElement !== audio) return;
+                    if (!audio.loop) {
                         playingAudioId = null;
                         renderAudios();
                     }
                 };
                 
-                activeAudioElement.volume = 0;
-                activeAudioElement.play().catch(e => console.error(e));
-                smoothFade(activeAudioElement, 1, fadeMs);
+                audio.volume = 0;
+                audio.play().catch(e => console.error(e));
+                smoothFade(audio, 1, fadeMs);
+                startViz();
                 
                 playingAudioId = id;
+                lastAudioId = id;
+                clearOffAll();   // suara dinyalakan manual -> tombol kembali jadi "Matikan Semua"
+                saveSettings();
             }
             renderAudios();
         };
 
         window.deleteAudio = async function(id) {
+            const target = backsounds.find(a => a.id === id);
+            if (!target) return;
+            const ok = await showConfirm({
+                title: 'Hapus suara latar?',
+                name: target.name,
+                text: 'akan dihapus permanen. Tindakan ini tidak dapat dibatalkan.',
+                note: playingAudioId === id ? 'Suara ini sedang diputar dan akan langsung dihentikan.' : ''
+            });
+            if (!ok) return;
+            forgetInOffAll('audio', id);
             const index = backsounds.findIndex(a => a.id === id);
             if (index > -1) {
                 if (playingAudioId === id && activeAudioElement) {
                     activeAudioElement.pause();
+                    detachVisualizer(activeAudioElement);
                     activeAudioElement = null;
                     playingAudioId = null;
                 }
+                if (lastAudioId === id) { lastAudioId = null; saveSettings(); }
                 URL.revokeObjectURL(backsounds[index].url);
                 await deleteMediaDB(id);
                 backsounds.splice(index, 1);
@@ -862,6 +1842,8 @@
         };
 
         function renderAudios() {
+            renameBlurSuspended = true;
+            backsounds.sort(sortByName);
             const list = document.getElementById('audio-list');
             list.innerHTML = backsounds.length === 0 ? '<div class="empty-state" style="padding:20px; font-size:0.9rem;">Belum ada suara latar</div>' : '';
 
@@ -875,7 +1857,7 @@
                         <div style="display:flex; justify-content:space-between; align-items:center;">
                             <div class="item-info">
                                 <div style="width:20px;height:20px;color:var(--text-muted);">${icons.audioNote}</div>
-                                <span class="item-name" style="${isPlaying ? 'color: var(--accent-green)' : ''}" title="${audio.name}">${audio.name}</span>
+                                ${nameHtml('audio', audio, '', audio.id === lastAudioId ? 'color: var(--accent-green)' : '')}
                             </div>
                             <div class="item-actions">
                                 <button class="btn-icon ${audio.loop ? 'active' : ''}" onclick="toggleLoop('${audio.id}')" title="Auto Repeat">${icons.repeat}</button>
@@ -885,17 +1867,19 @@
                         </div>
                         <div style="display:flex; align-items:center; gap:8px; font-size:0.75rem; color:var(--text-muted);">
                             <span class="current-time">${formatTime(curVal)}</span>
-                            <input type="range" class="seek-slider" style="flex:1;" 
+                            <input type="range" class="seek-slider" style="flex:1; --p:${audio.duration ? Math.min(1, curVal / audio.duration) : 0};" 
                                    min="0" max="${audio.duration || 0}" step="0.1" value="${curVal}"
                                    onpointerdown="this.isDragging = true" 
                                    onpointerup="const s = this; setTimeout(() => { s.isDragging = false; }, 200)" onpointercancel="this.isDragging = false" 
                                    onchange="seekAudio('${audio.id}', this.value)" 
-                                   oninput="document.querySelector('#audio-item-${audio.id} .current-time').innerText = formatTime(this.value)">
+                                   oninput="setSeekFill(this); document.querySelector('#audio-item-${audio.id} .current-time').innerText = formatTime(this.value)">
                             <span class="total-time">${formatTime(audio.duration || 0)}</span>
                             <span class="remain-time">(-${formatTime((audio.duration || 0) - curVal)})</span>
                         </div>
                     </div>`;
             });
+            renameBlurSuspended = false;
+            focusRenameInput();
         }
     </script>
 </body>
