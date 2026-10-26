@@ -1,0 +1,602 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dasbor Kontroler Presentasi</title>
+    <style>
+        :root {
+            --bg-base: #0f172a;
+            --bg-panel: #1e293b;
+            --bg-card: #334155;
+            --text-main: #f8fafc;
+            --text-muted: #94a3b8;
+            --accent-blue: #3b82f6;
+            --accent-blue-hover: #2563eb;
+            --accent-green: #10b981;
+            --danger: #ef4444;
+            --border: #475569;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: 'Segoe UI', system-ui, sans-serif;
+        }
+
+        body {
+            background-color: var(--bg-base);
+            color: var(--text-main);
+            height: 100vh;
+            display: flex;
+            overflow: hidden;
+        }
+
+        /* Layout */
+        .app {
+            display: flex;
+            width: 100%;
+            height: 100%;
+        }
+
+        /* Left: Preview Panel */
+        .preview-panel {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            padding: 24px;
+        }
+
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+
+        .header h1 {
+            font-size: 1.5rem;
+            font-weight: 600;
+        }
+
+        .header-controls {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .ratio-select {
+            background-color: var(--bg-card);
+            color: var(--text-main);
+            border: 1px solid var(--border);
+            padding: 8px 12px;
+            border-radius: 6px;
+            font-size: 0.9rem;
+            outline: none;
+            cursor: pointer;
+        }
+
+        .btn {
+            padding: 8px 16px;
+            border-radius: 6px;
+            border: none;
+            cursor: pointer;
+            font-weight: 500;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            color: white;
+            transition: 0.2s;
+        }
+        
+        .btn svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 2; }
+
+        .btn-primary { background-color: var(--accent-blue); }
+        .btn-primary:hover { background-color: var(--accent-blue-hover); }
+        
+        .btn-icon { background: none; padding: 6px; color: var(--text-muted); cursor: pointer; border: none; border-radius: 4px; display: flex; align-items: center; justify-content: center; }
+        .btn-icon svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 2; }
+        .btn-icon:hover { color: var(--text-main); background-color: rgba(255,255,255,0.1); }
+        .btn-icon.danger:hover { color: var(--danger); background-color: rgba(239,68,68,0.1); }
+        .btn-icon.active { color: var(--accent-green); }
+
+        .screen-container {
+            flex: 1;
+            background-color: #000;
+            border: 2px solid var(--border);
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+            overflow: hidden;
+            container-type: size;
+        }
+
+        .screen-img {
+            max-width: 100%;
+            max-height: 100%;
+            object-fit: contain;
+            display: none;
+        }
+
+        .empty-state {
+            color: var(--text-muted);
+            text-align: center;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 12px;
+        }
+
+        /* Right: Multimedia Panel */
+        .sidebar {
+            width: 400px;
+            background-color: var(--bg-panel);
+            border-left: 1px solid var(--border);
+            display: flex;
+            flex-direction: column;
+        }
+
+        .panel-section {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            border-bottom: 1px solid var(--border);
+            overflow: hidden;
+        }
+
+        .section-header {
+            padding: 16px;
+            background-color: rgba(0,0,0,0.2);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .item-list {
+            flex: 1;
+            overflow-y: auto;
+            padding: 12px;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        /* Custom Scrollbar */
+        .item-list::-webkit-scrollbar { width: 6px; }
+        .item-list::-webkit-scrollbar-track { background: transparent; }
+        .item-list::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+
+        .list-item {
+            background-color: var(--bg-card);
+            padding: 10px;
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            border: 1px solid transparent;
+        }
+        
+        .list-item.active {
+            border-color: var(--accent-green);
+            box-shadow: 0 0 10px rgba(16,185,129,0.1);
+        }
+
+        .item-info {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            overflow: hidden;
+        }
+
+        .item-thumb {
+            width: 40px;
+            height: 28px;
+            background: #000;
+            border-radius: 4px;
+            object-fit: cover;
+        }
+
+        .item-name {
+            font-size: 0.9rem;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            max-width: 180px;
+        }
+
+        .item-actions {
+            display: flex;
+            gap: 4px;
+        }
+
+        .hidden-input { display: none; }
+    </style>
+</head>
+<body>
+
+    <div class="app">
+        <!-- Preview Panel -->
+        <div class="preview-panel">
+            <div class="header">
+                <h1>Dasbor Kontroler</h1>
+                <div class="header-controls">
+                    <select id="ratio-select" class="ratio-select" onchange="changeRatio(this.value)">
+                        <option value="auto">Rasio Asli (Fit)</option>
+                        <option value="fill">Penuhi Layar (Stretch)</option>
+                        <option value="16/9">16:9 (Stretch)</option>
+                        <option value="4/3">4:3 (Stretch)</option>
+                        <option value="1/1">1:1 (Stretch)</option>
+                    </select>
+                    <button id="projector-btn" class="btn btn-primary" onclick="toggleProjectorWindow()">
+                        <svg viewBox="0 0 24 24"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"></rect><line x1="8" y1="21" x2="16" y2="21"></line><line x1="12" y1="17" x2="12" y2="21"></line></svg>
+                        Buka Proyektor
+                    </button>
+                </div>
+            </div>
+            
+            <div class="screen-container">
+                <div class="empty-state" id="preview-empty">
+                    <svg style="width:48px;height:48px;" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><circle cx="8.5" cy="8.5" r="1.5"></circle><polyline points="21 15 16 10 5 21"></polyline></svg>
+                    <p>Tidak Ada Latar Aktif</p>
+                </div>
+                <img id="preview-img" class="screen-img" src="" alt="Preview">
+            </div>
+        </div>
+
+        <!-- Multimedia Panel -->
+        <div class="sidebar">
+            
+            <!-- Backgrounds -->
+            <div class="panel-section">
+                <div class="section-header">
+                    <h3>Latar Belakang</h3>
+                    <button class="btn btn-primary" style="padding: 6px 12px; font-size: 0.85rem;" onclick="document.getElementById('bg-input').click()">
+                        Unggah
+                    </button>
+                    <input type="file" id="bg-input" class="hidden-input" accept="image/*" multiple onchange="handleUpload(event, 'bg')">
+                </div>
+                <div class="item-list" id="bg-list"></div>
+            </div>
+
+            <!-- Backsounds -->
+            <div class="panel-section">
+                <div class="section-header">
+                    <h3>Suara Latar</h3>
+                    <button class="btn btn-primary" style="padding: 6px 12px; font-size: 0.85rem;" onclick="document.getElementById('audio-input').click()">
+                        Unggah
+                    </button>
+                    <input type="file" id="audio-input" class="hidden-input" accept="audio/*" multiple onchange="handleUpload(event, 'audio')">
+                </div>
+                <div class="item-list" id="audio-list"></div>
+            </div>
+
+        </div>
+    </div>
+
+    <script>
+        // --- State ---
+        let backgrounds = [];
+        let activeBgId = null;
+        let isBlackout = false;
+        let currentRatio = 'auto';
+        
+        let backsounds = [];
+        let activeAudioElement = null;
+        let playingAudioId = null;
+        
+        let projectorWindow = null;
+
+        // --- Ikon SVG ---
+        const icons = {
+            eye: `<svg viewBox="0 0 24 24"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>`,
+            eyeOff: `<svg viewBox="0 0 24 24"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"></path><line x1="1" y1="1" x2="23" y2="23"></line></svg>`,
+            play: `<svg viewBox="0 0 24 24"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>`,
+            pause: `<svg viewBox="0 0 24 24"><rect x="6" y="4" width="4" height="16"></rect><rect x="14" y="4" width="4" height="16"></rect></svg>`,
+            trash: `<svg viewBox="0 0 24 24"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path><line x1="10" y1="11" x2="10" y2="17"></line><line x1="14" y1="11" x2="14" y2="17"></line></svg>`,
+            audioNote: `<svg viewBox="0 0 24 24"><path d="M9 18V5l12-2v13"></path><circle cx="6" cy="18" r="3"></circle><circle cx="18" cy="16" r="3"></circle></svg>`
+        };
+
+        const generateId = () => Math.random().toString(36).substring(2, 9);
+
+        // --- Window Management ---
+        let projectorCheckInterval = null;
+
+        async function toggleProjectorWindow() {
+            // 1. Logika untuk Menutup Jendela Proyektor
+            if (projectorWindow && !projectorWindow.closed) {
+                projectorWindow.close();
+                projectorWindow = null;
+                updateProjectorButton();
+                return;
+            }
+
+            // 2. Logika untuk Membuka Jendela Proyektor
+            let features = 'width=1280,height=720'; // Fallback manual
+            
+            // Coba deteksi Layar Extend (Window Management API)
+            try {
+                if ('getScreenDetails' in window) {
+                    const screenDetails = await window.getScreenDetails();
+                    // Cari layar eksternal (layar yang bukan layar utama saat ini)
+                    const extScreen = screenDetails.screens.find(s => s !== screenDetails.currentScreen);
+                    if (extScreen) {
+                        // Set posisi dan ukuran persis sesuai koordinat layar eksternal
+                        features = `left=${extScreen.availLeft},top=${extScreen.availTop},width=${extScreen.availWidth},height=${extScreen.availHeight}`;
+                    }
+                }
+            } catch (err) {
+                console.warn("Deteksi layar otomatis ditolak/tidak didukung. Beralih ke manual:", err);
+            }
+
+            projectorWindow = window.open('', 'Projector', features);
+            
+            // HTML untuk Jendela Kedua (bersih dari script agar tidak error parsing)
+            const projHTML = '<!DOCTYPE html><html><head><title>Layar Proyektor</title><style>body { margin: 0; padding: 0; background-color: #000; height: 100vh; width: 100vw; display: flex; align-items: center; justify-content: center; overflow: hidden; container-type: size; } #projector-img { display: none; object-fit: contain; }</style></head><body><img id="projector-img" src="" /></body></html>';
+            
+            projectorWindow.document.write(projHTML);
+            projectorWindow.document.close();
+            
+            // Coba aktifkan Mode Fullscreen Web native
+            // (Sebagian browser mengabaikan ini jika tidak ada klik langsung dari pengguna di window baru, 
+            // tapi set koordinat width/height di atas sudah membuatnya full-screen secara OS).
+            try {
+                projectorWindow.document.documentElement.requestFullscreen();
+            } catch(e) {}
+            
+            syncScreens();
+            updateProjectorButton();
+
+            // Pantau jika pengguna menutup window secara manual (tombol X di sudut atas OS)
+            if (projectorCheckInterval) clearInterval(projectorCheckInterval);
+            projectorCheckInterval = setInterval(() => {
+                if (projectorWindow && projectorWindow.closed) {
+                    projectorWindow = null;
+                    updateProjectorButton();
+                    clearInterval(projectorCheckInterval);
+                }
+            }, 500);
+        }
+
+        function updateProjectorButton() {
+            const btn = document.getElementById('projector-btn');
+            if (!btn) return;
+            
+            if (projectorWindow && !projectorWindow.closed) {
+                btn.style.backgroundColor = 'var(--danger)';
+                btn.innerHTML = `<svg viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg> Tutup Proyektor`;
+            } else {
+                btn.style.backgroundColor = 'var(--accent-blue)';
+                btn.innerHTML = `<svg viewBox="0 0 24 24"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"></rect><line x1="8" y1="21" x2="16" y2="21"></line><line x1="12" y1="17" x2="12" y2="21"></line></svg> Buka Proyektor`;
+            }
+        }
+
+        window.changeRatio = function(ratio) {
+            currentRatio = ratio;
+            syncScreens();
+        };
+
+        function applyRatioStyles(imgElement) {
+            if (!imgElement) return;
+            
+            if (currentRatio === 'auto') {
+                imgElement.style.maxWidth = '100%';
+                imgElement.style.maxHeight = '100%';
+                imgElement.style.width = '100%';
+                imgElement.style.height = '100%';
+                imgElement.style.objectFit = 'contain';
+            } else if (currentRatio === 'fill') {
+                imgElement.style.maxWidth = '100%';
+                imgElement.style.maxHeight = '100%';
+                imgElement.style.width = '100%';
+                imgElement.style.height = '100%';
+                imgElement.style.objectFit = 'fill';
+            } else {
+                const parts = currentRatio.split('/');
+                const w = parseFloat(parts[0]);
+                const h = parseFloat(parts[1]);
+                
+                imgElement.style.width = '100%';
+                imgElement.style.height = '100%';
+                imgElement.style.objectFit = 'fill'; // Paksa stretch menyesuaikan box
+                
+                // Gunakan Container Queries (cqw/cqh) untuk menghitung batas maksimal kotak rasio
+                imgElement.style.maxWidth = `calc(100cqh * (${w} / ${h}))`;
+                imgElement.style.maxHeight = `calc(100cqw * (${h} / ${w}))`;
+            }
+        }
+
+        function syncScreens() {
+            const previewImg = document.getElementById('preview-img');
+            const previewEmpty = document.getElementById('preview-empty');
+            const activeBg = backgrounds.find(b => b.id === activeBgId);
+            
+            const srcUrl = activeBg ? activeBg.url : '';
+            const showImg = (activeBg && !isBlackout) ? 'block' : 'none';
+
+            // Sinkronisasi Preview Lokal
+            previewImg.src = srcUrl;
+            previewImg.style.display = showImg;
+            applyRatioStyles(previewImg);
+            
+            if (activeBg && isBlackout) {
+                previewEmpty.innerHTML = `<div style="width:48px;height:48px;margin-bottom:8px;">${icons.eyeOff}</div><p>Mode Blackout Aktif</p>`;
+                previewEmpty.style.display = 'flex';
+            } else if (!activeBg) {
+                previewEmpty.innerHTML = `<svg style="width:48px;height:48px;margin-bottom:8px;" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><circle cx="8.5" cy="8.5" r="1.5"></circle><polyline points="21 15 16 10 5 21"></polyline></svg><p>Tidak Ada Latar Aktif</p>`;
+                previewEmpty.style.display = 'flex';
+            } else {
+                previewEmpty.style.display = 'none';
+            }
+
+            // Sinkronisasi Jendela Proyektor
+            if (projectorWindow && !projectorWindow.closed) {
+                const projImg = projectorWindow.document.getElementById('projector-img');
+                if (projImg) {
+                    projImg.src = srcUrl;
+                    projImg.style.display = showImg;
+                    applyRatioStyles(projImg);
+                }
+            }
+        }
+
+        // --- Upload Handler ---
+        function handleUpload(event, type) {
+            const files = event.target.files;
+            if (!files.length) return;
+
+            for (let file of files) {
+                const safeName = file.name.replace(/["']/g, ""); // Mencegah error petik
+                const item = {
+                    id: generateId(),
+                    name: safeName,
+                    url: URL.createObjectURL(file)
+                };
+                
+                if (type === 'bg') backgrounds.push(item);
+                if (type === 'audio') backsounds.push(item);
+            }
+            
+            event.target.value = ''; // Reset file input
+            
+            if (type === 'bg') renderBackgrounds();
+            if (type === 'audio') renderAudios();
+        }
+
+        // --- Background Logic ---
+        window.toggleBackground = function(id) {
+            if (activeBgId === id) {
+                isBlackout = !isBlackout; // Toggle blackout/show
+            } else {
+                activeBgId = id;
+                isBlackout = false; // Jika ganti gambar, matikan blackout
+            }
+            syncScreens();
+            renderBackgrounds();
+        };
+
+        window.deleteBackground = function(id) {
+            const index = backgrounds.findIndex(b => b.id === id);
+            if (index > -1) {
+                URL.revokeObjectURL(backgrounds[index].url);
+                backgrounds.splice(index, 1);
+                
+                if (activeBgId === id) {
+                    activeBgId = null;
+                    isBlackout = false;
+                    syncScreens();
+                }
+                renderBackgrounds();
+            }
+        };
+
+        function renderBackgrounds() {
+            const list = document.getElementById('bg-list');
+            list.innerHTML = backgrounds.length === 0 
+                ? '<div class="empty-state" style="padding:20px; font-size:0.9rem;">Belum ada latar belakang</div>' 
+                : '';
+
+            backgrounds.forEach(bg => {
+                const isActive = bg.id === activeBgId;
+                const activeClass = isActive && !isBlackout ? 'active' : '';
+                
+                list.innerHTML += `
+                    <div class="list-item ${activeClass}">
+                        <div class="item-info">
+                            <img src="${bg.url}" class="item-thumb" />
+                            <span class="item-name" title="${bg.name}">${bg.name}</span>
+                        </div>
+                        <div class="item-actions">
+                            <button class="btn-icon ${activeClass}" onclick="toggleBackground('${bg.id}')" title="${isActive && isBlackout ? 'Tampilkan' : 'Sembunyikan (Blackout)'}">
+                                ${(isActive && isBlackout) ? icons.eyeOff : icons.eye}
+                            </button>
+                            <button class="btn-icon danger" onclick="deleteBackground('${bg.id}')" title="Hapus">
+                                ${icons.trash}
+                            </button>
+                        </div>
+                    </div>
+                `;
+            });
+        }
+
+        // --- Backsound Logic ---
+        window.toggleAudio = function(id, url) {
+            if (playingAudioId === id) {
+                // Toggle Play/Pause untuk lagu yang sama
+                if (activeAudioElement.paused) {
+                    activeAudioElement.play().catch(e => console.error(e));
+                } else {
+                    activeAudioElement.pause();
+                }
+            } else {
+                // Hentikan lagu lama, mainkan lagu baru
+                if (activeAudioElement) {
+                    activeAudioElement.pause();
+                    activeAudioElement.currentTime = 0;
+                }
+                
+                activeAudioElement = new Audio(url);
+                activeAudioElement.play().catch(e => console.error("Audio error:", e));
+                playingAudioId = id;
+                
+                activeAudioElement.onended = () => {
+                    playingAudioId = null;
+                    renderAudios();
+                };
+            }
+            renderAudios();
+        };
+
+        window.deleteAudio = function(id) {
+            const index = backsounds.findIndex(a => a.id === id);
+            if (index > -1) {
+                if (playingAudioId === id) {
+                    activeAudioElement.pause();
+                    activeAudioElement = null;
+                    playingAudioId = null;
+                }
+                
+                URL.revokeObjectURL(backsounds[index].url);
+                backsounds.splice(index, 1);
+                renderAudios();
+            }
+        };
+
+        function renderAudios() {
+            const list = document.getElementById('audio-list');
+            list.innerHTML = backsounds.length === 0 
+                ? '<div class="empty-state" style="padding:20px; font-size:0.9rem;">Belum ada suara latar</div>' 
+                : '';
+
+            backsounds.forEach(audio => {
+                const isPlaying = audio.id === playingAudioId;
+                const isPaused = isPlaying ? activeAudioElement.paused : true;
+                
+                list.innerHTML += `
+                    <div class="list-item ${isPlaying && !isPaused ? 'active' : ''}">
+                        <div class="item-info">
+                            <div style="width:20px;height:20px;color:var(--text-muted);">${icons.audioNote}</div>
+                            <span class="item-name" style="${isPlaying ? 'color: var(--accent-green)' : ''}" title="${audio.name}">${audio.name}</span>
+                        </div>
+                        <div class="item-actions">
+                            <button class="btn-icon ${isPlaying && !isPaused ? 'active' : ''}" onclick="toggleAudio('${audio.id}', '${audio.url}')" title="${isPaused ? 'Putar' : 'Jeda'}">
+                                ${isPaused ? icons.play : icons.pause}
+                            </button>
+                            <button class="btn-icon danger" onclick="deleteAudio('${audio.id}')" title="Hapus">
+                                ${icons.trash}
+                            </button>
+                        </div>
+                    </div>
+                `;
+            });
+        }
+        
+        // Render Awal
+        renderBackgrounds();
+        renderAudios();
+
+    </script>
+</body>
+</html>
