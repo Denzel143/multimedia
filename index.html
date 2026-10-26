@@ -155,6 +155,16 @@
             align-items: center;
         }
 
+        .fade-control-bar {
+            padding: 10px 16px;
+            background-color: var(--bg-card);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 10px;
+            border-bottom: 1px solid var(--border);
+        }
+
         .item-list {
             flex: 1;
             overflow-y: auto;
@@ -164,7 +174,6 @@
             gap: 8px;
         }
 
-        /* Custom Scrollbar */
         .item-list::-webkit-scrollbar { width: 6px; }
         .item-list::-webkit-scrollbar-track { background: transparent; }
         .item-list::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
@@ -204,7 +213,7 @@
             white-space: nowrap;
             overflow: hidden;
             text-overflow: ellipsis;
-            max-width: 180px;
+            max-width: 170px;
         }
 
         .item-actions {
@@ -213,6 +222,48 @@
         }
 
         .hidden-input { display: none; }
+
+        /* Audio Player Sliders */
+        .seek-slider {
+            -webkit-appearance: none;
+            width: 100%;
+            background: transparent;
+            height: 16px;
+        }
+        .seek-slider::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            height: 10px;
+            width: 10px;
+            border-radius: 50%;
+            background: var(--accent-green);
+            cursor: pointer;
+            margin-top: -3.5px;
+        }
+        .seek-slider::-webkit-slider-runnable-track {
+            width: 100%;
+            height: 3px;
+            cursor: pointer;
+            background: rgba(255,255,255,0.2);
+            border-radius: 2px;
+        }
+        
+        #fade-slider {
+            -webkit-appearance: none;
+            background: transparent;
+            height: 16px;
+        }
+        #fade-slider::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            height: 12px; width: 12px;
+            border-radius: 50%;
+            background: var(--accent-blue);
+            cursor: pointer;
+            margin-top: -4.5px;
+        }
+        #fade-slider::-webkit-slider-runnable-track {
+            width: 100%; height: 3px; cursor: pointer;
+            background: rgba(255,255,255,0.2); border-radius: 2px;
+        }
     </style>
 </head>
 <body>
@@ -258,7 +309,7 @@
                     </button>
                     <input type="file" id="bg-input" class="hidden-input" accept="image/*" multiple onchange="handleUpload(event, 'bg')">
                 </div>
-                <div class="item-list" id="bg-list"></div>
+                <div class="item-list" id="bg-list">Memuat...</div>
             </div>
 
             <!-- Backsounds -->
@@ -270,13 +321,56 @@
                     </button>
                     <input type="file" id="audio-input" class="hidden-input" accept="audio/*" multiple onchange="handleUpload(event, 'audio')">
                 </div>
-                <div class="item-list" id="audio-list"></div>
+                <!-- Global Fade Control -->
+                <div class="fade-control-bar">
+                    <label style="font-size: 0.8rem; color: var(--text-muted); display:flex; align-items:center; gap:6px;">
+                        <svg viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" stroke-width="2" fill="none"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+                        Efek Fade:
+                    </label>
+                    <input type="range" id="fade-slider" min="0" max="5" step="0.1" value="2.0" style="flex:1;" oninput="document.getElementById('fade-val').innerText = parseFloat(this.value).toFixed(1) + 's'">
+                    <span id="fade-val" style="font-size: 0.85rem; color: var(--accent-blue); font-weight: bold; width:35px; text-align:right;">2.0s</span>
+                </div>
+                <div class="item-list" id="audio-list">Memuat...</div>
             </div>
 
         </div>
     </div>
 
     <script>
+        // --- Setup Database (IndexedDB) ---
+        const dbName = "PresentationControlDB";
+        let db;
+
+        function initDB() {
+            return new Promise((resolve, reject) => {
+                const request = indexedDB.open(dbName, 1);
+                request.onupgradeneeded = (e) => {
+                    db = e.target.result;
+                    if (!db.objectStoreNames.contains("media")) {
+                        db.createObjectStore("media", { keyPath: "id" });
+                    }
+                };
+                request.onsuccess = (e) => { db = e.target.result; resolve(); };
+                request.onerror = (e) => reject(e);
+            });
+        }
+
+        async function saveMediaDB(item) {
+            return new Promise((resolve) => {
+                const tx = db.transaction("media", "readwrite");
+                tx.objectStore("media").put(item);
+                tx.oncomplete = () => resolve();
+            });
+        }
+
+        async function deleteMediaDB(id) {
+            return new Promise((resolve) => {
+                const tx = db.transaction("media", "readwrite");
+                tx.objectStore("media").delete(id);
+                tx.oncomplete = () => resolve();
+            });
+        }
+
         // --- State ---
         let backgrounds = [];
         let activeBgId = null;
@@ -286,8 +380,16 @@
         let backsounds = [];
         let activeAudioElement = null;
         let playingAudioId = null;
-        
         let projectorWindow = null;
+
+        // --- Format & Utility ---
+        const generateId = () => Math.random().toString(36).substring(2, 9);
+        const formatTime = (sec) => {
+            if (isNaN(sec) || sec < 0) sec = 0;
+            const m = Math.floor(sec / 60).toString().padStart(2, '0');
+            const s = Math.floor(sec % 60).toString().padStart(2, '0');
+            return `${m}:${s}`;
+        };
 
         // --- Ikon SVG ---
         const icons = {
@@ -296,16 +398,28 @@
             play: `<svg viewBox="0 0 24 24"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>`,
             pause: `<svg viewBox="0 0 24 24"><rect x="6" y="4" width="4" height="16"></rect><rect x="14" y="4" width="4" height="16"></rect></svg>`,
             trash: `<svg viewBox="0 0 24 24"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path><line x1="10" y1="11" x2="10" y2="17"></line><line x1="14" y1="11" x2="14" y2="17"></line></svg>`,
-            audioNote: `<svg viewBox="0 0 24 24"><path d="M9 18V5l12-2v13"></path><circle cx="6" cy="18" r="3"></circle><circle cx="18" cy="16" r="3"></circle></svg>`
+            audioNote: `<svg viewBox="0 0 24 24"><path d="M9 18V5l12-2v13"></path><circle cx="6" cy="18" r="3"></circle><circle cx="18" cy="16" r="3"></circle></svg>`,
+            repeat: `<svg viewBox="0 0 24 24"><polyline points="17 1 21 5 17 9"></polyline><path d="M3 11V9a4 4 0 0 1 4-4h14"></path><polyline points="7 23 3 19 7 15"></polyline><path d="M21 13v2a4 4 0 0 1-4 4H3"></path></svg>`
         };
 
-        const generateId = () => Math.random().toString(36).substring(2, 9);
+        // --- Inisialisasi Aplikasi ---
+        document.addEventListener("DOMContentLoaded", async () => {
+            await initDB();
+            const tx = db.transaction("media", "readonly");
+            const request = tx.objectStore("media").getAll();
+            request.onsuccess = (e) => {
+                const all = e.target.result;
+                backgrounds = all.filter(x => x.type === 'bg').map(x => ({...x, url: URL.createObjectURL(x.file)}));
+                backsounds = all.filter(x => x.type === 'audio').map(x => ({...x, url: URL.createObjectURL(x.file)}));
+                renderBackgrounds();
+                renderAudios();
+            };
+        });
 
         // --- Window Management ---
         let projectorCheckInterval = null;
 
         async function toggleProjectorWindow() {
-            // 1. Logika untuk Menutup Jendela Proyektor
             if (projectorWindow && !projectorWindow.closed) {
                 projectorWindow.close();
                 projectorWindow = null;
@@ -313,43 +427,27 @@
                 return;
             }
 
-            // 2. Logika untuk Membuka Jendela Proyektor
-            let features = 'width=1280,height=720'; // Fallback manual
-            
-            // Coba deteksi Layar Extend (Window Management API)
+            let features = 'width=1280,height=720';
             try {
                 if ('getScreenDetails' in window) {
                     const screenDetails = await window.getScreenDetails();
-                    // Cari layar eksternal (layar yang bukan layar utama saat ini)
                     const extScreen = screenDetails.screens.find(s => s !== screenDetails.currentScreen);
                     if (extScreen) {
-                        // Set posisi dan ukuran persis sesuai koordinat layar eksternal
                         features = `left=${extScreen.availLeft},top=${extScreen.availTop},width=${extScreen.availWidth},height=${extScreen.availHeight}`;
                     }
                 }
-            } catch (err) {
-                console.warn("Deteksi layar otomatis ditolak/tidak didukung. Beralih ke manual:", err);
-            }
+            } catch (err) {}
 
             projectorWindow = window.open('', 'Projector', features);
-            
-            // HTML untuk Jendela Kedua (bersih dari script agar tidak error parsing)
             const projHTML = '<!DOCTYPE html><html><head><title>Layar Proyektor</title><style>body { margin: 0; padding: 0; background-color: #000; height: 100vh; width: 100vw; display: flex; align-items: center; justify-content: center; overflow: hidden; container-type: size; } #projector-img { display: none; object-fit: contain; }</style></head><body><img id="projector-img" src="" /></body></html>';
-            
             projectorWindow.document.write(projHTML);
             projectorWindow.document.close();
             
-            // Coba aktifkan Mode Fullscreen Web native
-            // (Sebagian browser mengabaikan ini jika tidak ada klik langsung dari pengguna di window baru, 
-            // tapi set koordinat width/height di atas sudah membuatnya full-screen secara OS).
-            try {
-                projectorWindow.document.documentElement.requestFullscreen();
-            } catch(e) {}
+            try { projectorWindow.document.documentElement.requestFullscreen(); } catch(e) {}
             
             syncScreens();
             updateProjectorButton();
 
-            // Pantau jika pengguna menutup window secara manual (tombol X di sudut atas OS)
             if (projectorCheckInterval) clearInterval(projectorCheckInterval);
             projectorCheckInterval = setInterval(() => {
                 if (projectorWindow && projectorWindow.closed) {
@@ -363,7 +461,6 @@
         function updateProjectorButton() {
             const btn = document.getElementById('projector-btn');
             if (!btn) return;
-            
             if (projectorWindow && !projectorWindow.closed) {
                 btn.style.backgroundColor = 'var(--danger)';
                 btn.innerHTML = `<svg viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg> Tutup Proyektor`;
@@ -380,29 +477,19 @@
 
         function applyRatioStyles(imgElement) {
             if (!imgElement) return;
-            
             if (currentRatio === 'auto') {
-                imgElement.style.maxWidth = '100%';
-                imgElement.style.maxHeight = '100%';
-                imgElement.style.width = '100%';
-                imgElement.style.height = '100%';
+                imgElement.style.maxWidth = '100%'; imgElement.style.maxHeight = '100%';
+                imgElement.style.width = '100%'; imgElement.style.height = '100%';
                 imgElement.style.objectFit = 'contain';
             } else if (currentRatio === 'fill') {
-                imgElement.style.maxWidth = '100%';
-                imgElement.style.maxHeight = '100%';
-                imgElement.style.width = '100%';
-                imgElement.style.height = '100%';
+                imgElement.style.maxWidth = '100%'; imgElement.style.maxHeight = '100%';
+                imgElement.style.width = '100%'; imgElement.style.height = '100%';
                 imgElement.style.objectFit = 'fill';
             } else {
                 const parts = currentRatio.split('/');
-                const w = parseFloat(parts[0]);
-                const h = parseFloat(parts[1]);
-                
-                imgElement.style.width = '100%';
-                imgElement.style.height = '100%';
-                imgElement.style.objectFit = 'fill'; // Paksa stretch menyesuaikan box
-                
-                // Gunakan Container Queries (cqw/cqh) untuk menghitung batas maksimal kotak rasio
+                const w = parseFloat(parts[0]); const h = parseFloat(parts[1]);
+                imgElement.style.width = '100%'; imgElement.style.height = '100%';
+                imgElement.style.objectFit = 'fill';
                 imgElement.style.maxWidth = `calc(100cqh * (${w} / ${h}))`;
                 imgElement.style.maxHeight = `calc(100cqw * (${h} / ${w}))`;
             }
@@ -416,10 +503,7 @@
             const srcUrl = activeBg ? activeBg.url : '';
             const showImg = (activeBg && !isBlackout) ? 'block' : 'none';
 
-            // Sinkronisasi Preview Lokal
-            previewImg.src = srcUrl;
-            previewImg.style.display = showImg;
-            applyRatioStyles(previewImg);
+            previewImg.src = srcUrl; previewImg.style.display = showImg; applyRatioStyles(previewImg);
             
             if (activeBg && isBlackout) {
                 previewEmpty.innerHTML = `<div style="width:48px;height:48px;margin-bottom:8px;">${icons.eyeOff}</div><p>Mode Blackout Aktif</p>`;
@@ -431,77 +515,66 @@
                 previewEmpty.style.display = 'none';
             }
 
-            // Sinkronisasi Jendela Proyektor
             if (projectorWindow && !projectorWindow.closed) {
                 const projImg = projectorWindow.document.getElementById('projector-img');
-                if (projImg) {
-                    projImg.src = srcUrl;
-                    projImg.style.display = showImg;
-                    applyRatioStyles(projImg);
-                }
+                if (projImg) { projImg.src = srcUrl; projImg.style.display = showImg; applyRatioStyles(projImg); }
             }
         }
 
         // --- Upload Handler ---
-        function handleUpload(event, type) {
+        async function handleUpload(event, type) {
             const files = event.target.files;
             if (!files.length) return;
 
             for (let file of files) {
-                const safeName = file.name.replace(/["']/g, ""); // Mencegah error petik
-                const item = {
-                    id: generateId(),
-                    name: safeName,
-                    url: URL.createObjectURL(file)
-                };
+                const id = generateId();
+                const safeName = file.name.replace(/["']/g, ""); 
                 
-                if (type === 'bg') backgrounds.push(item);
-                if (type === 'audio') backsounds.push(item);
+                if (type === 'audio') {
+                    const tempUrl = URL.createObjectURL(file);
+                    const tempAudio = new Audio(tempUrl);
+                    tempAudio.onloadedmetadata = async () => {
+                        const item = { id, name: safeName, type: 'audio', file: file, duration: tempAudio.duration, loop: false };
+                        await saveMediaDB(item);
+                        item.url = tempUrl;
+                        backsounds.push(item);
+                        renderAudios();
+                    };
+                } else {
+                    const item = { id, name: safeName, type: 'bg', file: file };
+                    await saveMediaDB(item);
+                    item.url = URL.createObjectURL(file);
+                    backgrounds.push(item);
+                    renderBackgrounds();
+                }
             }
-            
-            event.target.value = ''; // Reset file input
-            
-            if (type === 'bg') renderBackgrounds();
-            if (type === 'audio') renderAudios();
+            event.target.value = ''; 
         }
 
         // --- Background Logic ---
         window.toggleBackground = function(id) {
-            if (activeBgId === id) {
-                isBlackout = !isBlackout; // Toggle blackout/show
-            } else {
-                activeBgId = id;
-                isBlackout = false; // Jika ganti gambar, matikan blackout
-            }
-            syncScreens();
-            renderBackgrounds();
+            if (activeBgId === id) isBlackout = !isBlackout;
+            else { activeBgId = id; isBlackout = false; }
+            syncScreens(); renderBackgrounds();
         };
 
-        window.deleteBackground = function(id) {
+        window.deleteBackground = async function(id) {
             const index = backgrounds.findIndex(b => b.id === id);
             if (index > -1) {
                 URL.revokeObjectURL(backgrounds[index].url);
+                await deleteMediaDB(id);
                 backgrounds.splice(index, 1);
-                
-                if (activeBgId === id) {
-                    activeBgId = null;
-                    isBlackout = false;
-                    syncScreens();
-                }
+                if (activeBgId === id) { activeBgId = null; isBlackout = false; syncScreens(); }
                 renderBackgrounds();
             }
         };
 
         function renderBackgrounds() {
             const list = document.getElementById('bg-list');
-            list.innerHTML = backgrounds.length === 0 
-                ? '<div class="empty-state" style="padding:20px; font-size:0.9rem;">Belum ada latar belakang</div>' 
-                : '';
-
+            list.innerHTML = backgrounds.length === 0 ? '<div class="empty-state" style="padding:20px; font-size:0.9rem;">Belum ada latar belakang</div>' : '';
             backgrounds.forEach(bg => {
                 const isActive = bg.id === activeBgId;
                 const activeClass = isActive && !isBlackout ? 'active' : '';
-                
                 list.innerHTML += `
                     <div class="list-item ${activeClass}">
                         <div class="item-info">
@@ -509,56 +582,139 @@
                             <span class="item-name" title="${bg.name}">${bg.name}</span>
                         </div>
                         <div class="item-actions">
-                            <button class="btn-icon ${activeClass}" onclick="toggleBackground('${bg.id}')" title="${isActive && isBlackout ? 'Tampilkan' : 'Sembunyikan (Blackout)'}">
-                                ${(isActive && isBlackout) ? icons.eyeOff : icons.eye}
-                            </button>
-                            <button class="btn-icon danger" onclick="deleteBackground('${bg.id}')" title="Hapus">
-                                ${icons.trash}
-                            </button>
+                            <button class="btn-icon ${activeClass}" onclick="toggleBackground('${bg.id}')" title="${isActive && isBlackout ? 'Tampilkan' : 'Sembunyikan'}">${(isActive && isBlackout) ? icons.eyeOff : icons.eye}</button>
+                            <button class="btn-icon danger" onclick="deleteBackground('${bg.id}')" title="Hapus">${icons.trash}</button>
                         </div>
-                    </div>
-                `;
+                    </div>`;
             });
         }
 
-        // --- Backsound Logic ---
-        window.toggleAudio = function(id, url) {
-            if (playingAudioId === id) {
-                // Toggle Play/Pause untuk lagu yang sama
-                if (activeAudioElement.paused) {
-                    activeAudioElement.play().catch(e => console.error(e));
+        // --- Audio Logic & Fader ---
+        function smoothFade(audio, targetVolume, durationMs, onComplete) {
+            if (!audio) return;
+            clearInterval(audio.fadeTimer);
+            if (durationMs <= 0) {
+                audio.volume = targetVolume;
+                if (onComplete) onComplete();
+                return;
+            }
+            const stepTime = 50; 
+            const totalSteps = durationMs / stepTime;
+            const volStep = (targetVolume - audio.volume) / totalSteps;
+            
+            audio.fadeTimer = setInterval(() => {
+                let nextVol = audio.volume + volStep;
+                if ((volStep > 0 && nextVol >= targetVolume) || (volStep < 0 && nextVol <= targetVolume)) {
+                    audio.volume = Math.max(0, Math.min(1, targetVolume));
+                    clearInterval(audio.fadeTimer);
+                    if (onComplete) onComplete();
                 } else {
-                    activeAudioElement.pause();
+                    audio.volume = Math.max(0, Math.min(1, nextVol));
+                }
+            }, stepTime);
+        }
+
+        window.updateSeeker = function(id) {
+            if (playingAudioId !== id || !activeAudioElement) return;
+            const itemEl = document.getElementById(`audio-item-${id}`);
+            if (!itemEl) return;
+            
+            const seeker = itemEl.querySelector('.seek-slider');
+            const curText = itemEl.querySelector('.current-time');
+            const remainText = itemEl.querySelector('.remain-time');
+            
+            if (seeker && !seeker.isDragging) seeker.value = activeAudioElement.currentTime;
+            if (curText) curText.innerText = formatTime(activeAudioElement.currentTime);
+            if (remainText) remainText.innerText = `(-${formatTime(activeAudioElement.duration - activeAudioElement.currentTime)})`;
+        };
+
+        window.seekAudio = function(id, val) {
+            if (playingAudioId === id && activeAudioElement) {
+                activeAudioElement.currentTime = parseFloat(val);
+                activeAudioElement.isFadingOutEnd = false; // Batal antisipasi auto-fade saat disek
+                activeAudioElement.volume = 1;
+            }
+        };
+
+        window.toggleLoop = async function(id) {
+            const track = backsounds.find(b => b.id === id);
+            if(track) {
+                track.loop = !track.loop;
+                if(playingAudioId === id && activeAudioElement) activeAudioElement.loop = track.loop;
+                await saveMediaDB({...track, file: track.file, type: 'audio'}); // Update DB
+                renderAudios();
+            }
+        };
+
+        window.toggleAudio = function(id, url) {
+            const fadeSecs = parseFloat(document.getElementById('fade-slider').value);
+            const fadeMs = fadeSecs * 1000;
+
+            if (playingAudioId === id) {
+                // Toggle untuk audio yang sama dengan Fade
+                if (activeAudioElement.paused || activeAudioElement.isFadingOut) {
+                    activeAudioElement.isFadingOut = false;
+                    if(activeAudioElement.paused) activeAudioElement.play().catch(e => console.error(e));
+                    smoothFade(activeAudioElement, 1, fadeMs);
+                } else {
+                    activeAudioElement.isFadingOut = true;
+                    smoothFade(activeAudioElement, 0, fadeMs, () => {
+                        activeAudioElement.pause();
+                        activeAudioElement.isFadingOut = false;
+                        renderAudios(); 
+                    });
                 }
             } else {
-                // Hentikan lagu lama, mainkan lagu baru
-                if (activeAudioElement) {
-                    activeAudioElement.pause();
-                    activeAudioElement.currentTime = 0;
+                // Crossfade jika berpindah audio
+                if (activeAudioElement && !activeAudioElement.paused) {
+                    const oldAudio = activeAudioElement;
+                    oldAudio.isFadingOut = true;
+                    smoothFade(oldAudio, 0, fadeMs, () => {
+                        oldAudio.pause();
+                        oldAudio.src = '';
+                    });
                 }
                 
                 activeAudioElement = new Audio(url);
-                activeAudioElement.play().catch(e => console.error("Audio error:", e));
-                playingAudioId = id;
+                const trackData = backsounds.find(b => b.id === id);
+                activeAudioElement.loop = trackData ? trackData.loop : false;
+                
+                activeAudioElement.ontimeupdate = () => {
+                    updateSeeker(id);
+                    // Antisipasi fade-out di akhir durasi
+                    const remain = activeAudioElement.duration - activeAudioElement.currentTime;
+                    if (!activeAudioElement.loop && remain <= fadeSecs && remain > 0.1 && !activeAudioElement.isFadingOutEnd) {
+                        activeAudioElement.isFadingOutEnd = true;
+                        smoothFade(activeAudioElement, 0, fadeSecs * 1000, null);
+                    }
+                };
                 
                 activeAudioElement.onended = () => {
-                    playingAudioId = null;
-                    renderAudios();
+                    if (!activeAudioElement.loop) {
+                        playingAudioId = null;
+                        renderAudios();
+                    }
                 };
+                
+                activeAudioElement.volume = 0;
+                activeAudioElement.play().catch(e => console.error(e));
+                smoothFade(activeAudioElement, 1, fadeMs);
+                
+                playingAudioId = id;
             }
             renderAudios();
         };
 
-        window.deleteAudio = function(id) {
+        window.deleteAudio = async function(id) {
             const index = backsounds.findIndex(a => a.id === id);
             if (index > -1) {
-                if (playingAudioId === id) {
+                if (playingAudioId === id && activeAudioElement) {
                     activeAudioElement.pause();
                     activeAudioElement = null;
                     playingAudioId = null;
                 }
-                
                 URL.revokeObjectURL(backsounds[index].url);
+                await deleteMediaDB(id);
                 backsounds.splice(index, 1);
                 renderAudios();
             }
@@ -566,37 +722,39 @@
 
         function renderAudios() {
             const list = document.getElementById('audio-list');
-            list.innerHTML = backsounds.length === 0 
-                ? '<div class="empty-state" style="padding:20px; font-size:0.9rem;">Belum ada suara latar</div>' 
-                : '';
+            list.innerHTML = backsounds.length === 0 ? '<div class="empty-state" style="padding:20px; font-size:0.9rem;">Belum ada suara latar</div>' : '';
 
             backsounds.forEach(audio => {
                 const isPlaying = audio.id === playingAudioId;
-                const isPaused = isPlaying ? activeAudioElement.paused : true;
+                const isPaused = isPlaying ? (activeAudioElement.paused || activeAudioElement.isFadingOut) : true;
+                const curVal = isPlaying && activeAudioElement ? activeAudioElement.currentTime : 0;
                 
                 list.innerHTML += `
-                    <div class="list-item ${isPlaying && !isPaused ? 'active' : ''}">
-                        <div class="item-info">
-                            <div style="width:20px;height:20px;color:var(--text-muted);">${icons.audioNote}</div>
-                            <span class="item-name" style="${isPlaying ? 'color: var(--accent-green)' : ''}" title="${audio.name}">${audio.name}</span>
+                    <div class="list-item ${isPlaying && !isPaused ? 'active' : ''}" id="audio-item-${audio.id}" style="flex-direction:column; align-items:stretch; gap:12px;">
+                        <div style="display:flex; justify-content:space-between; align-items:center;">
+                            <div class="item-info">
+                                <div style="width:20px;height:20px;color:var(--text-muted);">${icons.audioNote}</div>
+                                <span class="item-name" style="${isPlaying ? 'color: var(--accent-green)' : ''}" title="${audio.name}">${audio.name}</span>
+                            </div>
+                            <div class="item-actions">
+                                <button class="btn-icon ${audio.loop ? 'active' : ''}" onclick="toggleLoop('${audio.id}')" title="Auto Repeat">${icons.repeat}</button>
+                                <button class="btn-icon ${isPlaying && !isPaused ? 'active' : ''}" onclick="toggleAudio('${audio.id}', '${audio.url}')" title="${isPaused ? 'Putar' : 'Jeda'}">${isPaused ? icons.play : icons.pause}</button>
+                                <button class="btn-icon danger" onclick="deleteAudio('${audio.id}')" title="Hapus">${icons.trash}</button>
+                            </div>
                         </div>
-                        <div class="item-actions">
-                            <button class="btn-icon ${isPlaying && !isPaused ? 'active' : ''}" onclick="toggleAudio('${audio.id}', '${audio.url}')" title="${isPaused ? 'Putar' : 'Jeda'}">
-                                ${isPaused ? icons.play : icons.pause}
-                            </button>
-                            <button class="btn-icon danger" onclick="deleteAudio('${audio.id}')" title="Hapus">
-                                ${icons.trash}
-                            </button>
+                        <div style="display:flex; align-items:center; gap:8px; font-size:0.75rem; color:var(--text-muted);">
+                            <span class="current-time">${formatTime(curVal)}</span>
+                            <input type="range" class="seek-slider" style="flex:1;" 
+                                   min="0" max="${audio.duration || 0}" step="0.1" value="${curVal}"
+                                   onmousedown="this.isDragging = true" 
+                                   onmouseup="this.isDragging = false; seekAudio('${audio.id}', this.value)" 
+                                   oninput="document.querySelector('#audio-item-${audio.id} .current-time').innerText = formatTime(this.value)">
+                            <span class="total-time">${formatTime(audio.duration || 0)}</span>
+                            <span class="remain-time">(-${formatTime((audio.duration || 0) - curVal)})</span>
                         </div>
-                    </div>
-                `;
+                    </div>`;
             });
         }
-        
-        // Render Awal
-        renderBackgrounds();
-        renderAudios();
-
     </script>
 </body>
 </html>
