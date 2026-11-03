@@ -2076,6 +2076,32 @@
             saveSettings();
         };
 
+        // Hide / Tampilkan pada video: Hide = blackout + suara video dimatikan (fade keluar).
+        // Tampilkan lagi = layar kembali; bila video tadi sedang berputar, dilanjutkan dengan fade masuk.
+        window.toggleVideoHide = async function(id) {
+            const v = videos.find(x => x.id === id);
+            if (!v) return;
+            if (activeBgId === id && !isBlackout) {
+                const M = videoMaster && videoMaster._id === id ? videoMaster : null;
+                if (M) M._resumeAfterHide = !M.paused && !M._fading;
+                isBlackout = true;
+                syncScreens();
+                pauseVideo();
+                renderBackgrounds();
+                saveSettings();
+                return;
+            }
+            const M = videoMaster && videoMaster._id === id ? videoMaster : null;
+            const resume = !!(M && M._resumeAfterHide);
+            if (resume && !(await askVideoVsAudio())) return;
+            activeBgId = id; isBlackout = false;
+            clearOffAll();
+            syncScreens();
+            if (resume && videoMaster && videoMaster._id === id) { videoMaster._resumeAfterHide = false; resumeVideo(); }
+            renderBackgrounds();
+            saveSettings();
+        };
+
         window.seekVideo = function(id, val) {
             if (videoMaster && videoMaster._id === id) videoMaster.currentTime = parseFloat(val);
         };
@@ -2161,6 +2187,7 @@
                             </div>
                             <div class="item-actions">
                                 <button class="btn-icon ${v.loop ? 'active' : ''}" onclick="toggleVideoLoop('${v.id}')" title="Auto Repeat">${icons.repeat}</button>
+                                <button class="btn-icon ${isActive && !isBlackout ? 'active' : ''}" onclick="toggleVideoHide('${v.id}')" title="${isActive && !isBlackout ? 'Sembunyikan' : 'Tampilkan'}">${isActive && !isBlackout ? icons.eyeOff : icons.eye}</button>
                                 <button class="btn-icon ${playing ? 'active' : ''}" onclick="toggleVideo('${v.id}')" title="${playing ? 'Jeda' : 'Putar'}">${playing ? icons.pause : icons.play}</button>
                                 <button class="btn-icon danger" onclick="deleteVideo('${v.id}')" title="Hapus">${icons.trash}</button>
                             </div>
