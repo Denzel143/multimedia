@@ -690,9 +690,11 @@
                     <h3>Latar Belakang</h3>
                     <div class="header-actions">
                     <button type="button" class="btn-icon anim-btn" id="anim-btn" title="Animasi latar" aria-label="Pengaturan animasi latar" aria-expanded="false" onclick="toggleAnimPop()"><svg viewBox="0 0 24 24"><line x1="4" y1="21" x2="4" y2="14"></line><line x1="4" y1="10" x2="4" y2="3"></line><line x1="12" y1="21" x2="12" y2="12"></line><line x1="12" y1="8" x2="12" y2="3"></line><line x1="20" y1="21" x2="20" y2="16"></line><line x1="20" y1="12" x2="20" y2="3"></line><line x1="1" y1="14" x2="7" y2="14"></line><line x1="9" y1="8" x2="15" y2="8"></line><line x1="17" y1="16" x2="23" y2="16"></line></svg></button>
+                    <button type="button" class="btn-icon" title="Unggah folder (semua isi & subfolder, otomatis dipilah)" aria-label="Unggah folder" onclick="pickFolder()"><svg viewBox="0 0 24 24"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path><line x1="12" y1="11" x2="12" y2="17"></line><line x1="9" y1="14" x2="15" y2="14"></line></svg></button>
                     <button class="btn btn-primary" style="padding: 6px 12px; font-size: 0.85rem;" onclick="document.getElementById('bg-input').click()">
                         Unggah
                     </button>
+                    <input type="file" id="folder-input" class="hidden-input" webkitdirectory multiple onchange="handleUpload(event, 'folder')">
                     <input type="file" id="bg-input" class="hidden-input" accept="image/*,video/*" multiple onchange="handleUpload(event, 'media')">
                     <button type="button" class="btn-icon exp-btn" title="Perbesar" aria-label="Perbesar panel" onclick="toggleExpand('bg')"><svg viewBox="0 0 24 24"><polyline points="15 3 21 3 21 9"></polyline><polyline points="9 21 3 21 3 15"></polyline><line x1="21" y1="3" x2="14" y2="10"></line><line x1="3" y1="21" x2="10" y2="14"></line></svg></button>
                     </div>
@@ -728,6 +730,7 @@
                 <div class="section-header">
                     <h3>Suara Latar</h3>
                     <div class="header-actions">
+                    <button type="button" class="btn-icon" title="Unggah folder (semua isi & subfolder, otomatis dipilah)" aria-label="Unggah folder" onclick="pickFolder()"><svg viewBox="0 0 24 24"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path><line x1="12" y1="11" x2="12" y2="17"></line><line x1="9" y1="14" x2="15" y2="14"></line></svg></button>
                     <button class="btn btn-primary" style="padding: 6px 12px; font-size: 0.85rem;" onclick="document.getElementById('audio-input').click()">
                         Unggah
                     </button>
@@ -1427,6 +1430,27 @@
             return null;
         }
 
+        // Untuk unggah folder: gambar / video / audio dikenali dari tipe MIME atau ekstensi; lainnya diabaikan
+        const AUDIO_EXT = /\.(mp3|wav|ogg|oga|m4a|aac|flac|opus|weba|wma|aif|aiff|amr)$/i;
+        function classifyAny(f) {
+            const k = classifyFile(f);
+            if (k) return k;
+            if (f.type.startsWith('audio/')) return 'audio';
+            if (!f.type && AUDIO_EXT.test(f.name)) return 'audio';
+            // tipe MIME ada tapi umum/salah (mis. application/octet-stream): cek ekstensi
+            if (VIDEO_EXT.test(f.name)) return 'video';
+            if (IMAGE_EXT.test(f.name)) return 'image';
+            if (AUDIO_EXT.test(f.name)) return 'audio';
+            return null;
+        }
+
+        window.pickFolder = function() {
+            const inp = document.getElementById('folder-input');
+            if (!inp) return;
+            if (!('webkitdirectory' in inp)) { showToast('Browser ini tidak mendukung unggah folder. Gunakan tombol Unggah biasa.'); return; }
+            inp.click();
+        };
+
         // Muat metadata video + thumbnail (frame sekitar detik ke-1); null jika rusak / tidak didukung
         function loadVideoMeta(file) {
             return new Promise(resolve => {
@@ -1463,12 +1487,14 @@
             event.target.value = '';
             if (!files.length) return;
 
-            const failed = [], got = { image: 0, video: 0 };
-            let lastKind = null;
+            const failed = [], got = { image: 0, video: 0, audio: 0 };
+            let lastKind = null, skipped = 0;
+            if (type === 'folder') showToast(`Membaca folder… ${files.length} file ditemukan.`, 'ok');
             for (const file of files) {
                 const id = generateId();
                 const safeName = file.name.replace(/["']/g, "");
-                const kind = type === 'audio' ? 'audio' : classifyFile(file);
+                const kind = type === 'audio' ? 'audio' : type === 'folder' ? classifyAny(file) : classifyFile(file);
+                if (type === 'folder' && !kind) { skipped++; continue; }   // file selain gambar/video/audio (mis. Thumbs.db) diabaikan
                 try {
                     if (kind === 'audio') {
                         const meta = await loadAudioMeta(file);
@@ -1477,6 +1503,7 @@
                         await saveMediaDB(item);
                         item.url = meta.url;
                         backsounds.push(item);
+                        got.audio++;
                         renderAudios();
                     } else if (kind === 'video') {
                         const m = await loadVideoMeta(file);
@@ -1504,6 +1531,14 @@
             // Jika tab yang sedang dibuka tidak menerima file, pindah ke tab tempat file masuk
             if (type !== 'audio' && lastKind && !got[mediaTab]) setMediaTab(lastKind);
 
+            if (type === 'folder') {
+                const parts = [];
+                if (got.image) parts.push(`${got.image} gambar`);
+                if (got.video) parts.push(`${got.video} video`);
+                if (got.audio) parts.push(`${got.audio} audio`);
+                const extra = skipped ? ` ${skipped} file lain dilewati.` : '';
+                showToast((parts.length ? `Folder dimuat: ${parts.join(', ')}.` : 'Tidak ada gambar, video, atau audio di folder ini.') + extra, parts.length ? 'ok' : 'error');
+            }
             if (failed.length) {
                 const shown = failed.slice(0, 10).map(n => '• ' + n).join('\n');
                 const more = failed.length > 10 ? `\n… dan ${failed.length - 10} file lainnya` : '';
