@@ -695,6 +695,7 @@
                     <h3>Latar Belakang</h3>
                     <div class="header-actions">
                     <button type="button" class="btn-icon anim-btn" id="anim-btn" title="Animasi latar" aria-label="Pengaturan animasi latar" aria-expanded="false" onclick="toggleAnimPop()"><svg viewBox="0 0 24 24"><line x1="4" y1="21" x2="4" y2="14"></line><line x1="4" y1="10" x2="4" y2="3"></line><line x1="12" y1="21" x2="12" y2="12"></line><line x1="12" y1="8" x2="12" y2="3"></line><line x1="20" y1="21" x2="20" y2="16"></line><line x1="20" y1="12" x2="20" y2="3"></line><line x1="1" y1="14" x2="7" y2="14"></line><line x1="9" y1="8" x2="15" y2="8"></line><line x1="17" y1="16" x2="23" y2="16"></line></svg></button>
+                    <button type="button" class="btn-icon danger" id="clear-media-btn" title="Hapus semua gambar" aria-label="Hapus semua gambar" onclick="deleteAllMedia()"><svg viewBox="0 0 24 24"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"></path><path d="M10 11v6"></path><path d="M14 11v6"></path><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"></path></svg></button>
                     <button class="btn btn-primary" style="padding: 6px 12px; font-size: 0.85rem;" onclick="document.getElementById('bg-input').click()">
                         Unggah
                     </button>
@@ -733,6 +734,7 @@
                 <div class="section-header">
                     <h3>Suara Latar</h3>
                     <div class="header-actions">
+                    <button type="button" class="btn-icon danger" id="clear-audio-btn" title="Hapus semua suara latar" aria-label="Hapus semua suara latar" onclick="deleteAllAudios()"><svg viewBox="0 0 24 24"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"></path><path d="M10 11v6"></path><path d="M14 11v6"></path><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"></path></svg></button>
                     <button class="btn btn-primary" style="padding: 6px 12px; font-size: 0.85rem;" onclick="document.getElementById('audio-input').click()">
                         Unggah
                     </button>
@@ -2219,6 +2221,8 @@
             document.getElementById('tab-video').classList.toggle('on', mediaTab === 'video');
             document.getElementById('bg-list').hidden = mediaTab !== 'image';
             document.getElementById('video-list').hidden = mediaTab !== 'video';
+            const cb = document.getElementById('clear-media-btn');
+            if (cb) { const t = mediaTab === 'video' ? 'Hapus semua video' : 'Hapus semua gambar'; cb.title = t; cb.setAttribute('aria-label', t); }
             saveSettings();
         }
 
@@ -2439,6 +2443,76 @@
                 backsounds.splice(index, 1);
                 renderAudios();
             }
+        };
+
+        // ===== Hapus semua (gambar / video / suara latar dipisah) =====
+        window.deleteAllMedia = function() { return mediaTab === 'video' ? deleteAllVideos() : deleteAllImages(); };
+
+        async function deleteAllImages() {
+            if (!backgrounds.length) { showToast('Tidak ada gambar untuk dihapus.'); return; }
+            const n = backgrounds.length, activeHere = backgrounds.some(b => b.id === activeBgId);
+            const ok = await showConfirm({
+                title: 'Hapus semua gambar?', name: `${n} gambar`,
+                text: 'akan dihapus permanen. Tindakan ini tidak dapat dibatalkan.',
+                note: activeHere ? 'Gambar yang sedang tampil di layar akan ikut dihilangkan.' : '',
+                okText: 'Hapus semua'
+            });
+            if (!ok) return;
+            const list = backgrounds.slice();
+            for (const b of list) {
+                forgetInOffAll('bg', b.id);
+                try { URL.revokeObjectURL(b.url); await deleteMediaDB(b.id); } catch (e) {}
+            }
+            backgrounds.splice(0, backgrounds.length);
+            if (activeHere) { activeBgId = null; isBlackout = false; syncScreens(); saveSettings(); }
+            renderBackgrounds();
+        }
+
+        async function deleteAllVideos() {
+            if (!videos.length) { showToast('Tidak ada video untuk dihapus.'); return; }
+            const n = videos.length, activeHere = videos.some(v => v.id === activeBgId);
+            const ok = await showConfirm({
+                title: 'Hapus semua video?', name: `${n} video`,
+                text: 'akan dihapus permanen. Tindakan ini tidak dapat dibatalkan.',
+                note: activeHere ? 'Video yang sedang tampil di layar akan dihentikan dan ikut dihilangkan.' : '',
+                okText: 'Hapus semua'
+            });
+            if (!ok) return;
+            const list = videos.slice();
+            if (activeHere && videoMaster) disposeVideoMaster(true);
+            for (const v of list) {
+                forgetInOffAll('video', v.id);
+                try { URL.revokeObjectURL(v.url); await deleteMediaDB(v.id); } catch (e) {}
+            }
+            videos.splice(0, videos.length);
+            if (activeHere) { activeBgId = null; isBlackout = false; syncScreens(); saveSettings(); }
+            renderVideos();
+        }
+
+        window.deleteAllAudios = async function() {
+            if (!backsounds.length) { showToast('Tidak ada suara latar untuk dihapus.'); return; }
+            const n = backsounds.length;
+            const ok = await showConfirm({
+                title: 'Hapus semua suara latar?', name: `${n} suara latar`,
+                text: 'akan dihapus permanen. Tindakan ini tidak dapat dibatalkan.',
+                note: playingAudioId ? 'Suara yang sedang diputar akan langsung dihentikan.' : '',
+                okText: 'Hapus semua'
+            });
+            if (!ok) return;
+            const list = backsounds.slice();
+            if (activeAudioElement) {
+                activeAudioElement.pause();
+                detachVisualizer(activeAudioElement);
+                activeAudioElement = null;
+                playingAudioId = null;
+            }
+            for (const a of list) {
+                forgetInOffAll('audio', a.id);
+                try { URL.revokeObjectURL(a.url); await deleteMediaDB(a.id); } catch (e) {}
+            }
+            backsounds.splice(0, backsounds.length);
+            lastAudioId = null; saveSettings();
+            renderAudios();
         };
 
         function renderAudios() {
