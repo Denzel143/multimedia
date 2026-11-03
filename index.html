@@ -2,7 +2,7 @@
 <html lang="id">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0, user-scalable=no">
     <title>Dasbor Kontroler Presentasi</title>
     <meta name="theme-color" content="#03070a">
     <style>
@@ -35,6 +35,12 @@
             overflow: hidden;
             -webkit-text-size-adjust: 100%;
         }
+
+        /* Tanpa zoom (pinch / double-tap) dan tanpa seleksi teks; kolom isian tetap boleh diketik */
+        html, body { touch-action: pan-x pan-y; }
+        body, body * { -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
+        input, textarea, [contenteditable="true"] { -webkit-user-select: text; user-select: text; }
+        input[type="range"] { -webkit-user-select: none; user-select: none; }
 
         /* Layout */
         .app {
@@ -399,6 +405,17 @@
         .anim-panel summary::after { content: '\25BE'; transition: transform 0.2s; }
         .anim-panel[open] summary::after { transform: rotate(180deg); }
         .anim-panel summary:hover { color: var(--text-main); }
+        /* Mode normal: panel animasi disembunyikan, dibuka lewat tombol di header sebagai popover melayang
+           (tidak mendorong / menutupi daftar secara permanen; tertutup saat klik di luar atau Esc) */
+        #sec-bg:not(.exp-mode):not(.exp-anim) .anim-panel summary { display: none; }
+        #sec-bg:not(.exp-mode):not(.exp-anim) .anim-panel:not([open]) { display: none; }
+        #sec-bg:not(.exp-mode):not(.exp-anim) .anim-panel[open] {
+            position: fixed; z-index: 900; padding-top: 12px;
+            border: 1px solid var(--border); border-radius: 4px;
+            box-shadow: 0 16px 40px rgba(0,0,0,.65);
+        }
+        .exp-mode .anim-btn { display: none; }
+        .anim-btn.on { color: var(--accent-blue); border-color: var(--accent-blue); }
         .anim-grid {
             display: grid; grid-template-columns: auto minmax(0, 1fr);
             gap: 8px 12px; align-items: center;
@@ -672,6 +689,7 @@
                 <div class="section-header">
                     <h3>Latar Belakang</h3>
                     <div class="header-actions">
+                    <button type="button" class="btn-icon anim-btn" id="anim-btn" title="Animasi latar" aria-label="Pengaturan animasi latar" aria-expanded="false" onclick="toggleAnimPop()"><svg viewBox="0 0 24 24"><line x1="4" y1="21" x2="4" y2="14"></line><line x1="4" y1="10" x2="4" y2="3"></line><line x1="12" y1="21" x2="12" y2="12"></line><line x1="12" y1="8" x2="12" y2="3"></line><line x1="20" y1="21" x2="20" y2="16"></line><line x1="20" y1="12" x2="20" y2="3"></line><line x1="1" y1="14" x2="7" y2="14"></line><line x1="9" y1="8" x2="15" y2="8"></line><line x1="17" y1="16" x2="23" y2="16"></line></svg></button>
                     <button class="btn btn-primary" style="padding: 6px 12px; font-size: 0.85rem;" onclick="document.getElementById('bg-input').click()">
                         Unggah
                     </button>
@@ -1088,7 +1106,7 @@
             }
 
             const projHTML = '<!DOCTYPE html><html><head><title>Layar Proyektor</title><style>'
-                + 'body { margin: 0; padding: 0; background-color: #000; height: 100vh; width: 100vw; display: flex; align-items: center; justify-content: center; overflow: hidden; container-type: size; cursor: none; }'
+                + 'body { margin: 0; padding: 0; user-select: none; -webkit-user-select: none; touch-action: none; background-color: #000; height: 100vh; width: 100vw; display: flex; align-items: center; justify-content: center; overflow: hidden; container-type: size; cursor: none; }'
                 + '#stage { position: fixed; top: 0; left: 0; right: 0; bottom: 0; overflow: hidden; container-type: size; }'
                 + '#fs-hint { position: fixed; bottom: 16px; left: 50%; transform: translateX(-50%); color: #fff; background: rgba(255,255,255,0.15); font: 14px sans-serif; padding: 8px 16px; border-radius: 999px; cursor: pointer; z-index: 10; }'
                 + '</style></head><body><div id="stage"></div><div id="fs-hint">Klik di mana saja untuk layar penuh</div>'
@@ -1098,6 +1116,8 @@
                 + 'function updHint(){hint.style.display=document.fullscreenElement?"none":"block";}'
                 + 'document.addEventListener("fullscreenchange",updHint);'
                 + 'document.addEventListener("click",goFS);'
+                + 'window.addEventListener("wheel",function(e){if(e.ctrlKey)e.preventDefault();},{passive:false});'
+                + 'document.addEventListener("keydown",function(e){if((e.ctrlKey||e.metaKey)&&"+-=_0".indexOf(e.key)>-1)e.preventDefault();},true);'
                 + 'document.addEventListener("keydown",function(e){if(e.key!=="Escape")goFS();});'
                 + 'window.addEventListener("load",goFS);'
                 + '<\/script></body></html>';
@@ -2497,6 +2517,7 @@
             const sec = document.getElementById(kind === 'bg' ? 'sec-bg' : 'sec-audio');
             if (!sec) return;
             if (renameState) finishRename(true);
+            closeAnimPop();
             expBusy = true;
             const r0 = sec.getBoundingClientRect();
             const first = expRects(sec);
@@ -2516,7 +2537,7 @@
             document.body.appendChild(ov);
 
             const det = sec.querySelector('.anim-panel');
-            expState = { kind, sec, ph, ov, backdrop, shell, wasOpen: det ? det.open : false, preview: null };
+            expState = { kind, sec, ph, ov, backdrop, shell, wasOpen: false, preview: null };
             sec.classList.add('exp-mode', 'exp-' + kind, 'exp-anim');
             if (det) det.open = true;                       // dropdown animasi otomatis terbuka
             vizSide = kind === 'audio';
@@ -2583,7 +2604,53 @@
             }, EXP_MS + 40);
         }
 
+        // ===== Popover animasi latar =====
+        function closeAnimPop() {
+            const det = document.getElementById('anim-panel'), btn = document.getElementById('anim-btn');
+            if (!det) return;
+            if (!expState) det.open = false;
+            ['position', 'left', 'top', 'width', 'right'].forEach(k => det.style[k] = '');
+            if (btn) { btn.classList.remove('on'); btn.setAttribute('aria-expanded', 'false'); }
+        }
+        function placeAnimPop() {
+            const det = document.getElementById('anim-panel'), btn = document.getElementById('anim-btn');
+            if (!det || !btn || !det.open) return;
+            const r = btn.getBoundingClientRect(), vw = document.documentElement.clientWidth, vh = window.innerHeight;
+            const w = Math.min(340, vw - 16);
+            det.style.width = w + 'px';
+            det.style.left = Math.max(8, Math.min(r.right - w, vw - w - 8)) + 'px';
+            const h = det.offsetHeight;
+            det.style.top = Math.max(8, Math.min(r.bottom + 6, vh - h - 8)) + 'px';
+        }
+        window.toggleAnimPop = function() {
+            if (expState) return;
+            const det = document.getElementById('anim-panel'), btn = document.getElementById('anim-btn');
+            if (!det) return;
+            if (det.open) { closeAnimPop(); return; }
+            det.open = true;
+            btn.classList.add('on'); btn.setAttribute('aria-expanded', 'true');
+            placeAnimPop();
+        };
+        document.addEventListener('pointerdown', (e) => {
+            const det = document.getElementById('anim-panel');
+            if (!det || !det.open || expState) return;
+            if (det.contains(e.target) || e.target.closest('#anim-btn')) return;
+            closeAnimPop();
+        }, true);
+        window.addEventListener('resize', () => { if (!expState) closeAnimPop(); });
+        document.addEventListener('scroll', (e) => { const d = document.getElementById('anim-panel'); if (!expState && d && d.open && !(e.target.nodeType === 1 && d.contains(e.target))) closeAnimPop(); }, true);
+
+        // ===== Cegah zoom (Ctrl + roda mouse, Ctrl +/-/0, pinch, gesture Safari) =====
+        window.addEventListener('wheel', (e) => { if (e.ctrlKey) e.preventDefault(); }, { passive: false });
+        window.addEventListener('keydown', (e) => {
+            if ((e.ctrlKey || e.metaKey) && ['+', '-', '=', '_', '0', 'Add', 'Subtract'].includes(e.key)) e.preventDefault();
+        }, true);
+        ['gesturestart', 'gesturechange', 'gestureend'].forEach(t => document.addEventListener(t, (e) => e.preventDefault(), { passive: false }));
+        document.addEventListener('touchmove', (e) => { if (e.touches.length > 1) e.preventDefault(); }, { passive: false });
+        document.addEventListener('dblclick', (e) => { if (e.target.closest && !e.target.closest('input, textarea')) { const sel = window.getSelection(); if (sel) sel.removeAllRanges(); } });
+
         document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape' && !expState) { const d = document.getElementById('anim-panel'); if (d && d.open) { closeAnimPop(); return; } }
             if (e.key !== 'Escape' || !expState || expBusy || renameState) return;
             if (!document.getElementById('confirm-overlay').hidden) return;
             collapsePanel();
